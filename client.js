@@ -32,12 +32,17 @@ ws.onmessage = e => {
     if (navigator.vibrate) navigator.vibrate(200);
   }
 
+  if (data.type === "hit") {
+    if (data.target === playerId) alert("Potato hit you!");
+  }
+
   if (data.type === "winner") {
     if (data.player === playerId) alert("You win!");
     else alert(`Player ${data.player} won the game`);
   }
 };
 
+// Throw potato button
 document.getElementById("throwBtn").onclick = () => {
   ws.send(JSON.stringify({
     type: "launch",
