@@ -64,7 +64,7 @@ function addPlayerToLobby(pid, lobbyId) {
   });
 
   // Auto-start game when 10 players join
-  if (!lobby.gameStarted && lobby.players.length >= 10) startGame(lobbyId);
+  if (!lobby.gameStarted && lobby.players.length >= 2) startGame(lobbyId);
 }
 
 // --- Game Logic ---
