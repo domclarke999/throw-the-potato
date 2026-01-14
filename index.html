@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Throw the Potato</title>
+<style>
+html, body {height:100%; margin:0;}
+#map {height:100%; width:100%; display:none;}
+#lobby {position:absolute; top:0; left:0; width:100%; height:100%; background:white; z-index:10; text-align:center; padding:20px;}
+#playerList {list-style:none; padding:0;}
+</style>
+<script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY"></script>
+</head>
+<body>
+
+<div id="lobby">
+    <h2>Lobby</h2>
+    <p>Waiting for enough players...</p>
+    <ul id="playerList"></ul>
+</div>
+<div id="map"></div>
+
+<script>
+let map, myMarker, potatoMarker;
+let playerMarkers = {};
+let myId, holder;
+let potato = {lat:0,lng:0};
+let targetPotato = {lat:0,lng:0};
+let ws = new WebSocket("ws://YOUR_SERVER_IP:3000");
+
+navigator.geolocation.getCurrentPosition(pos=>{
+    const {latitude, longitude} = pos.coords;
+    map = new google.maps.Map(document.getElementById("map"), {
+        center:{lat:latitude,lng:longitude},
+        zoom:18
+    });
+    myMarker = new google.maps.Marker({position:{lat:latitude,lng:longitude}, map, title:"You", icon:"http://maps.google.com/mapfiles/ms/icons/blue-dot.png"});
+    navigator.geolocation.watchPosition(pos=>{
+        const {latitude, longitude} = pos.coords;
+        myMarker.setPosition({lat:latitude,lng:longitude});
+        ws.send(JSON.stringify({type:"location", lat:latitude, lon:longitude}));
+    });
+});
+
+// Swipe throw with trajectory
+let touchStart = null, touchTime=null, trajectoryLine=null;
+map?.getDiv().addEventListener("touchstart", e=>{
+    if(holder!==myId) return;
+    e.preventDefault();
+    touchStart={x:e.touches[0].clientX, y:e.touches[0].clientY};
+    touchTime=Date.now();
+    if(!trajectoryLine){
+        trajectoryLine=new google.maps.Polyline({map:map, strokeColor:"#FF0000", strokeOpacity:0.7, strokeWeight:4});
+    }
+});
+map?.getDiv().addEventListener("touchmove", e=>{
+    if(!touchStart) return;
+    const touchMove={x:e.touches[0].clientX, y:e.touches[0].clientY};
+    const dx = touchMove.x - touchStart.x;
+    const dy = touchMove.y - touchStart.y;
+    const latLngs=[];
+    const myPos = myMarker.getPosition();
+    for(let i=1;i<=5;i++){
+        latLngs.push({lat:myPos.lat()+dy*i*0.00001, lng:myPos.lng()+dx*i*0.00001});
+    }
+    trajectoryLine.setPath(latLngs);
+});
+map?.getDiv().addEventListener("touchend", e=>{
+    if(!touchStart) return;
+    e.preventDefault();
+    trajectoryLine.setPath([]);
+    const touchEnd={x:e.changedTouches[0].clientX, y:e.changedTouches[0].clientY};
+    const dt = (Date.now()-touchTime)/1000;
+    const vx=(touchEnd.x-touchStart.x)/dt;
+    const vy=(touchEnd.y-touchStart.y)/dt;
+    ws.send(JSON.stringify({type:"launch", vx, vy}));
+    touchStart=null;
+});
+
+// WebSocket messages
+ws.onmessage = e=>{
+    const data = JSON.parse(e.data);
+
+    if(data.type==="joinedLobby") myId=data.id;
+
+    if(data.type==="lobbyUpdate"){
+        document.getElementById("lobby").style.display="block";
+        document.getElementById("map").style.display="none";
+        const playerList = document.getElementById("playerList");
+        playerList.innerHTML="";
+        data.players.forEach(p=>{
+            const li = document.createElement("li");
+            li.textContent=p.id+(p.id===myId?" (You)":"");
+            playerList.appendChild(li);
+        });
+    }
+
+    if(data.type==="gameStarted"){
+        document.getElementById("lobby").style.display="none";
+        document.getElementById("map").style.display="block";
+        holder=data.potatoHolder;
+        alert(`Game started! ${holder} has the potato first.`);
+    }
+
+    if(data.type==="update"){
+        holder = data.holder;
+        targetPotato = data.potato;
+
+        // Update players
+        data.players.forEach(p=>{
+            const pos={lat:p.lat,lng:p.lon};
+            if(!playerMarkers[p.id]){
+                playerMarkers[p.id]=new google.maps.Marker({
+                    position:pos,
+                    map,
+                    title:p.id,
+                    icon:p.alive?(p.id===holder?"http://maps.google.com/mapfiles/ms/icons/yellow-dot.png":"http://maps.google.com/mapfiles/ms/icons/green-dot.png"):"http://maps.google.com/mapfiles/ms/icons/red-dot.png"
+                });
+            } else {
+                playerMarkers[p.id].setPosition(pos);
+                playerMarkers[p.id].setIcon(p.alive?(p.id===holder?"http://maps.google.com/mapfiles/ms/icons/yellow-dot.png":"http://maps.google.com/mapfiles/ms/icons/green-dot.png"):"http://maps.google.com/mapfiles/ms/icons/red-dot.png");
+            }
+        });
+
+        // Potato marker
+        if(!potatoMarker){
+            potatoMarker=new google.maps.Marker({position:{lat:potato.lat,lng:potato.lng}, map, icon:{url:"https://via.placeholder.com/30/964B00/964B00.png?text=🥔", scaledSize:new google.maps.Size(30,30)}});
+        }
+    }
+
+    if(data.type==="hit" && data.target===myId){
+        if(navigator.vibrate) navigator.vibrate([300,100,300]);
+        alert("🥔 Incoming Potato!");
+    }
+
+    if(data.type==="potatoNearby"){
+        if(navigator.vibrate) navigator.vibrate([200]);
+    }
+
+    if(data.type==="winner"){
+        if(data.player===myId) alert("🏆 YOU WIN!");
+        else alert("💀 Game Over! Winner: "+data.player);
+    }
+};
+
+// Smooth potato animation
+function animatePotato(){
+    if(potatoMarker){
+        potato.lat += (targetPotato.lat - potato.lat)*0.2;
+        potato.lng += (targetPotato.lon - potato.lng)*0.2;
+        potatoMarker.setPosition({lat:potato.lat,lng:potato.lng});
+    }
+    requestAnimationFrame(animatePotato);
+}
+animatePotato();
+</script>
+</body>
+</html>
