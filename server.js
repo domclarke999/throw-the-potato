@@ -10,11 +10,15 @@ const PORT = process.env.PORT || 3000;
 // Serve static front-end files
 app.use(express.static("."));
 
+// --- Game constants ---
+const MIN_PLAYERS = 2; // change to 10 for production
+const MAX_PLAYERS_PER_LOBBY = 100;
+
 // --- Game state ---
 let players = {}; // pid -> { ws, alive, holding, lat, lon, lobbyId, holdStartTime }
 let lobbies = {}; // lobbyId -> { players: [], gameStarted, potato, interval }
 
-// Utility
+// --- Utility ---
 function generateId(len = 5) {
   return Math.random().toString(36).substring(2, 2 + len);
 }
@@ -29,7 +33,7 @@ function broadcast(lobbyId, data) {
   });
 }
 
-// Create a new lobby
+// --- Lobby management ---
 function createLobby() {
   const id = generateId(6);
   lobbies[id] = {
@@ -38,13 +42,14 @@ function createLobby() {
     potato: { holder: null, inFlight: false, vx: 0, vy: 0, lastLauncher: null },
     interval: null
   };
+  console.log(`Created lobby ${id}`);
   return id;
 }
 
-// Add a player to a lobby
 function addPlayerToLobby(pid) {
+  // Find first open lobby
   let lobbyId = Object.values(lobbies).find(
-    l => !l.gameStarted && l.players.length < 100
+    l => !l.gameStarted && l.players.length < MAX_PLAYERS_PER_LOBBY
   )?.id;
 
   if (!lobbyId) lobbyId = createLobby();
@@ -54,12 +59,17 @@ function addPlayerToLobby(pid) {
 
   console.log(`Player ${pid} joined lobby ${lobbyId}. Total: ${lobbies[lobbyId].players.length}`);
 
-  broadcast(lobbyId, { type: "lobbyUpdate", players: lobbies[lobbyId].players });
+  broadcast(lobbyId, { type: "lobbyUpdate", players: lobbies[lobbyId].players, gameStarted: lobbies[lobbyId].gameStarted, minPlayers: MIN_PLAYERS });
 
-  if (!lobbies[lobbyId].gameStarted && lobbies[lobbyId].players.length >= 2) startGame(lobbyId);
+  // --- Start game only if enough players ---
+  if (!lobbies[lobbyId].gameStarted && lobbies[lobbyId].players.length >= MIN_PLAYERS) {
+    startGame(lobbyId);
+  } else if (!lobbies[lobbyId].gameStarted) {
+    console.log(`Waiting for at least ${MIN_PLAYERS} players to start lobby ${lobbyId}`);
+  }
 }
 
-// Start the game
+// --- Game management ---
 function startGame(lobbyId) {
   const lobby = lobbies[lobbyId];
   if (!lobby) return;
@@ -77,7 +87,6 @@ function startGame(lobbyId) {
   lobby.interval = setInterval(() => gameLoop(lobbyId), 100);
 }
 
-// Game loop
 function gameLoop(lobbyId) {
   const lobby = lobbies[lobbyId];
   if (!lobby) return;
@@ -142,7 +151,6 @@ function gameLoop(lobbyId) {
   broadcast(lobbyId, { type: "update", players: lobby.players, potato });
 }
 
-// Reset lobby after game
 function resetLobby(lobbyId) {
   const lobby = lobbies[lobbyId];
   if (!lobby) return;
@@ -162,7 +170,7 @@ function resetLobby(lobbyId) {
     }
   });
 
-  broadcast(lobbyId, { type: "lobbyUpdate", players: lobby.players });
+  broadcast(lobbyId, { type: "lobbyUpdate", players: lobby.players, gameStarted: false, minPlayers: MIN_PLAYERS });
 }
 
 // --- WebSocket ---
@@ -208,7 +216,7 @@ wss.on("connection", ws => {
     delete players[pid];
     if (lobbies[lobbyId]) {
       lobbies[lobbyId].players = lobbies[lobbyId].players.filter(x => x !== pid);
-      broadcast(lobbyId, { type: "lobbyUpdate", players: lobbies[lobbyId].players });
+      broadcast(lobbyId, { type: "lobbyUpdate", players: lobbies[lobbyId].players, gameStarted: lobbies[lobbyId].gameStarted, minPlayers: MIN_PLAYERS });
     }
   });
 });
