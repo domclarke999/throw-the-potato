@@ -7,7 +7,7 @@ const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 3000;
 
-// Serve static files if needed (index.html, client.js)
+// Serve static front-end files
 app.use(express.static("."));
 
 // --- Game state ---
@@ -29,7 +29,6 @@ function broadcast(lobbyId, data) {
   });
 }
 
-// Create new lobby
 function createLobby() {
   const id = generateId(6);
   lobbies[id] = {
@@ -41,7 +40,6 @@ function createLobby() {
   return id;
 }
 
-// Add player to first open lobby
 function addPlayerToLobby(pid) {
   let lobbyId = null;
   for (const id in lobbies) {
@@ -59,11 +57,10 @@ function addPlayerToLobby(pid) {
 
   broadcast(lobbyId, { type: "lobbyUpdate", players: lobbies[lobbyId].players });
 
-  // Auto-start game when 2+ players (for testing)
+  // Auto-start game when 2 or more players (change for production)
   if (!lobbies[lobbyId].gameStarted && lobbies[lobbyId].players.length >= 2) startGame(lobbyId);
 }
 
-// Start the game
 function startGame(lobbyId) {
   const lobby = lobbies[lobbyId];
   if (!lobby) return;
@@ -81,13 +78,12 @@ function startGame(lobbyId) {
   lobby.interval = setInterval(() => gameLoop(lobbyId), 100);
 }
 
-// Main game loop
 function gameLoop(lobbyId) {
   const lobby = lobbies[lobbyId];
   if (!lobby) return;
   const potato = lobby.potato;
 
-  // Potato flight
+  // Potato movement
   if (potato.inFlight) {
     potato.lat += potato.vy;
     potato.lon += potato.vx;
@@ -108,7 +104,7 @@ function gameLoop(lobbyId) {
     }
   }
 
-  // Elimination
+  // Elimination after 5 minutes
   for (const pid of lobby.players) {
     const p = players[pid];
     if (!p.holding || !p.alive) continue;
@@ -125,7 +121,7 @@ function gameLoop(lobbyId) {
     }
   }
 
-  // Winner
+  // Winner detection
   const alive = lobby.players.filter(pid => players[pid]?.alive);
   if (alive.length === 1) {
     broadcast(lobbyId, { type: "winner", player: alive[0] });
@@ -133,7 +129,7 @@ function gameLoop(lobbyId) {
     return;
   }
 
-  // Nearby vibration
+  // Potato nearby vibration
   for (const pid of lobby.players) {
     const p = players[pid];
     if (!p.alive || p.holding) continue;
@@ -146,7 +142,6 @@ function gameLoop(lobbyId) {
   broadcast(lobbyId, { type: "update", players: lobby.players, potato });
 }
 
-// Reset lobby
 function resetLobby(lobbyId) {
   const lobby = lobbies[lobbyId];
   if (!lobby) return;
@@ -167,7 +162,7 @@ function resetLobby(lobbyId) {
   broadcast(lobbyId, { type: "lobbyUpdate", players: lobby.players });
 }
 
-// WebSocket setup
+// WebSocket
 const wss = new WebSocketServer({ server });
 
 wss.on("connection", ws => {
