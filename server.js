@@ -7,7 +7,7 @@ const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 3000;
 
-// Serve static front-end files
+// Serve static files
 app.use(express.static("."));
 
 // --- Game state ---
@@ -57,7 +57,7 @@ function addPlayerToLobby(pid) {
 
   broadcast(lobbyId, { type: "lobbyUpdate", players: lobbies[lobbyId].players });
 
-  // Auto-start game when 2 or more players (change for production)
+  // Auto-start game when 2+ players (change for production)
   if (!lobbies[lobbyId].gameStarted && lobbies[lobbyId].players.length >= 2) startGame(lobbyId);
 }
 
@@ -180,15 +180,24 @@ wss.on("connection", ws => {
     const lobby = lobbies[lobbyId];
     if (!lobby) return;
 
-    if (data.type === "launch" && lobby.potato.holder === pid) {
+    // --- Launch potato ---
+    if (data.type === "launch") {
+      if (lobby.potato.holder !== pid) {
+        console.log(`Player ${pid} tried to throw but is not holder`);
+        return;
+      }
+
       lobby.potato.vx = data.vx * 0.00001;
       lobby.potato.vy = data.vy * 0.00001;
       lobby.potato.inFlight = true;
       lobby.potato.lastLauncher = pid;
       players[pid].holding = false;
       lobby.potato.holder = null;
+
+      broadcast(lobbyId, { type: "launch", from: pid });
     }
 
+    // --- Update location ---
     if (data.type === "location") {
       players[pid].lat = data.lat;
       players[pid].lon = data.lon;
