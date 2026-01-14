@@ -1,4 +1,3 @@
-// server.js
 import express from "express";
 import http from "http";
 import { WebSocketServer } from "ws";
@@ -7,7 +6,6 @@ const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 3000;
 
-// Serve static files (index.html + client.js)
 app.use(express.static("."));
 
 // --- Game constants ---
@@ -58,19 +56,25 @@ function addPlayerToLobby(pid) {
 
   console.log(`Player ${pid} joined lobby ${lobbyId}. Total: ${lobbies[lobbyId].players.length}`);
 
-  broadcast(lobbyId, { 
-    type: "lobbyUpdate", 
-    players: lobbies[lobbyId].players, 
-    gameStarted: lobbies[lobbyId].gameStarted, 
-    minPlayers: MIN_PLAYERS 
-  });
+  broadcastLobby(lobbyId);
 
   // Start game only if enough players
   if (!lobbies[lobbyId].gameStarted && lobbies[lobbyId].players.length >= MIN_PLAYERS) {
     startGame(lobbyId);
-  } else if (!lobbies[lobbyId].gameStarted) {
-    console.log(`Waiting for at least ${MIN_PLAYERS} players to start lobby ${lobbyId}`);
   }
+}
+
+function broadcastLobby(lobbyId) {
+  const lobby = lobbies[lobbyId];
+  if (!lobby) return;
+
+  broadcast(lobbyId, {
+    type: "lobbyUpdate",
+    players: lobby.players,
+    potato: lobby.potato,
+    gameStarted: lobby.gameStarted,
+    minPlayers: MIN_PLAYERS
+  });
 }
 
 // --- Game management ---
@@ -86,7 +90,7 @@ function startGame(lobbyId) {
   players[firstHolder].holdStartTime = Date.now();
 
   console.log(`Game started in lobby ${lobbyId}. First holder: ${firstHolder}`);
-  broadcast(lobbyId, { type: "gameStarted", potatoHolder: firstHolder });
+  broadcastLobby(lobbyId);
 
   lobby.interval = setInterval(() => gameLoop(lobbyId), 100);
 }
@@ -111,13 +115,13 @@ function gameLoop(lobbyId) {
         potato.holder = pid;
         p.holding = true;
         p.holdStartTime = Date.now();
-        broadcast(lobbyId, { type: "hit", target: pid, from: potato.lastLauncher });
+        broadcastLobby(lobbyId);
         break;
       }
     }
   }
 
-  // Elimination after 5 minutes
+  // Elimination
   for (const pid of lobby.players) {
     const p = players[pid];
     if (!p.holding || !p.alive) continue;
@@ -130,7 +134,7 @@ function gameLoop(lobbyId) {
         players[returnTo].holding = true;
         players[returnTo].holdStartTime = Date.now();
       }
-      broadcast(lobbyId, { type: "eliminated", player: pid, potatoHolder: potato.holder });
+      broadcastLobby(lobbyId);
     }
   }
 
@@ -152,7 +156,7 @@ function gameLoop(lobbyId) {
     if (distance < 50) p.ws.send(JSON.stringify({ type: "potatoNearby" }));
   }
 
-  broadcast(lobbyId, { type: "update", players: lobby.players, potato });
+  broadcastLobby(lobbyId);
 }
 
 function resetLobby(lobbyId) {
@@ -162,7 +166,6 @@ function resetLobby(lobbyId) {
   clearInterval(lobby.interval);
   lobby.interval = null;
   lobby.gameStarted = false;
-
   lobby.potato = { holder: null, inFlight: false, vx: 0, vy: 0, lastLauncher: null };
 
   lobby.players.forEach(pid => {
@@ -174,19 +177,13 @@ function resetLobby(lobbyId) {
     }
   });
 
-  broadcast(lobbyId, { 
-    type: "lobbyUpdate", 
-    players: lobby.players, 
-    gameStarted: false, 
-    minPlayers: MIN_PLAYERS 
-  });
+  broadcastLobby(lobbyId);
 }
 
 // --- WebSocket ---
 const wss = new WebSocketServer({ server });
 
 wss.on("connection", ws => {
-  console.log("New connection");
   const pid = generateId();
   players[pid] = { ws, alive: true, holding: false, lat: 0, lon: 0, lobbyId: null, holdStartTime: null };
 
@@ -200,20 +197,17 @@ wss.on("connection", ws => {
     const lobby = lobbies[lobbyId];
     if (!lobby) return;
 
-    // --- Launch potato ---
     if (data.type === "launch") {
-      if (lobby.potato.holder !== pid) return; // only holder can throw
+      if (lobby.potato.holder !== pid) return;
       lobby.potato.vx = data.vx * 0.00001;
       lobby.potato.vy = data.vy * 0.00001;
       lobby.potato.inFlight = true;
       lobby.potato.lastLauncher = pid;
       players[pid].holding = false;
       lobby.potato.holder = null;
-
-      broadcast(lobbyId, { type: "launch", from: pid });
+      broadcastLobby(lobbyId);
     }
 
-    // --- Update location ---
     if (data.type === "location") {
       players[pid].lat = data.lat;
       players[pid].lon = data.lon;
@@ -225,12 +219,7 @@ wss.on("connection", ws => {
     delete players[pid];
     if (lobbies[lobbyId]) {
       lobbies[lobbyId].players = lobbies[lobbyId].players.filter(x => x !== pid);
-      broadcast(lobbyId, { 
-        type: "lobbyUpdate", 
-        players: lobbies[lobbyId].players, 
-        gameStarted: lobbies[lobbyId].gameStarted, 
-        minPlayers: MIN_PLAYERS 
-      });
+      broadcastLobby(lobbyId);
     }
   });
 });
