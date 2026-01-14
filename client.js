@@ -1,3 +1,5 @@
+const MIN_PLAYERS = 2; // should match server
+
 const ws = new WebSocket(`ws://${location.host}`);
 
 let playerId = null;
@@ -12,11 +14,16 @@ ws.onmessage = e => {
   if (data.type === "joinedLobby") {
     playerId = data.id;
     lobbyId = data.lobbyId;
-    document.getElementById("status").innerText = `Joined lobby ${lobbyId} as ${playerId}`;
+    document.getElementById("status").innerText = `Joined lobby ${lobbyId}`;
   }
 
   if (data.type === "lobbyUpdate") {
-    document.getElementById("status").innerText = `Players in lobby: ${data.players.length}`;
+    const playersCount = data.players.length;
+    if (!data.gameStarted) {
+      document.getElementById("status").innerText = `Players in lobby: ${playersCount} / ${MIN_PLAYERS} waiting...`;
+    } else {
+      document.getElementById("status").innerText = `Game in progress!`;
+    }
   }
 
   if (data.type === "gameStarted") {
