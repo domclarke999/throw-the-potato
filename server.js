@@ -56,6 +56,8 @@ function addPlayerToLobby(pid, lobbyId) {
   lobby.players.push(pid);
   players[pid].currentLobbyId = lobbyId;
 
+  console.log(`Player ${pid} joined lobby ${lobbyId}. Total players: ${lobby.players.length}`);
+
   broadcastToLobby(lobbyId, {
     type: "lobbyUpdate",
     lobbyId,
@@ -63,7 +65,7 @@ function addPlayerToLobby(pid, lobbyId) {
     gameStarted: lobby.gameStarted
   });
 
-  // Auto-start game when 10 players join
+  // Auto-start game when 2+ players (for testing)
   if (!lobby.gameStarted && lobby.players.length >= 2) startGame(lobbyId);
 }
 
@@ -79,6 +81,7 @@ function startGame(lobbyId) {
   players[firstHolder].holding = true;
   players[firstHolder].holdStartTime = Date.now();
 
+  console.log(`Game started in lobby ${lobbyId}. First holder: ${firstHolder}`);
   broadcastToLobby(lobbyId, { type: "gameStarted", potatoHolder: firstHolder });
 
   lobby.interval = setInterval(() => gameLoop(lobbyId), 100);
@@ -186,8 +189,8 @@ wss.on("connection", ws => {
   const pid = generateId();
   players[pid] = { ws, alive: true, holding: false, lastLauncher: null, holdStartTime: null, lat:0, lon:0, currentLobbyId: null };
 
-  // Assign to lobby
-  let lobbyId = Object.values(lobbies).find(l => !l.gameStarted && l.players.length < 10)?.id;
+  // Assign to first available lobby
+  let lobbyId = Object.values(lobbies).find(l => !l.gameStarted && l.players.length < 100)?.id;
   if (!lobbyId) lobbyId = createLobby();
   addPlayerToLobby(pid, lobbyId);
 
@@ -219,7 +222,12 @@ wss.on("connection", ws => {
     delete players[pid];
     if (lobbies[lobbyId]) {
       lobbies[lobbyId].players = lobbies[lobbyId].players.filter(x => x !== pid);
-      broadcastToLobby(lobbyId, { type: "lobbyUpdate", lobbyId, players: lobbies[lobbyId].players, gameStarted: lobbies[lobbyId].gameStarted });
+      broadcastToLobby(lobbyId, {
+        type: "lobbyUpdate",
+        lobbyId,
+        players: lobbies[lobbyId].players,
+        gameStarted: lobbies[lobbyId].gameStarted
+      });
     }
   });
 });
