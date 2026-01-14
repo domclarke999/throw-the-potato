@@ -6,17 +6,18 @@ const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 3000;
 
+// Serve static files
 app.use(express.static("."));
 
 // --- Game constants ---
-const MIN_PLAYERS = 2; // change to 10 for production
+const MIN_PLAYERS = 2;  // set to 10 for production
 const MAX_PLAYERS_PER_LOBBY = 100;
 
 // --- Game state ---
-let players = {}; // pid -> { ws, alive, holding, lat, lon, lobbyId, holdStartTime }
-let lobbies = {}; // lobbyId -> { players: [], gameStarted, potato, interval }
+let players = {};  // pid -> { ws, alive, holding, lat, lon, lobbyId, holdStartTime }
+let lobbies = {};  // lobbyId -> { players: [], gameStarted, potato, interval }
 
-// --- Utility ---
+// --- Utilities ---
 function generateId(len = 5) {
   return Math.random().toString(36).substring(2, 2 + len);
 }
@@ -45,6 +46,7 @@ function createLobby() {
 }
 
 function addPlayerToLobby(pid) {
+  // Join first lobby that hasn't started and has room
   let lobbyId = Object.values(lobbies).find(
     l => !l.gameStarted && l.players.length < MAX_PLAYERS_PER_LOBBY
   )?.id;
@@ -58,8 +60,9 @@ function addPlayerToLobby(pid) {
 
   broadcastLobby(lobbyId);
 
-  // Start game only if enough players
-  if (!lobbies[lobbyId].gameStarted && lobbies[lobbyId].players.length >= MIN_PLAYERS) {
+  // Start game only if minimum players reached
+  const lobby = lobbies[lobbyId];
+  if (!lobby.gameStarted && lobby.players.length >= MIN_PLAYERS) {
     startGame(lobbyId);
   }
 }
@@ -67,20 +70,21 @@ function addPlayerToLobby(pid) {
 function broadcastLobby(lobbyId) {
   const lobby = lobbies[lobbyId];
   if (!lobby) return;
-
-  broadcast(lobbyId, {
-    type: "lobbyUpdate",
+  const data = {
+    type: lobby.gameStarted ? "update" : "waiting",
     players: lobby.players,
     potato: lobby.potato,
     gameStarted: lobby.gameStarted,
     minPlayers: MIN_PLAYERS
-  });
+  };
+  broadcast(lobbyId, data);
 }
 
 // --- Game management ---
 function startGame(lobbyId) {
   const lobby = lobbies[lobbyId];
   if (!lobby) return;
+
   lobby.gameStarted = true;
 
   const idx = Math.floor(Math.random() * lobby.players.length);
@@ -90,6 +94,7 @@ function startGame(lobbyId) {
   players[firstHolder].holdStartTime = Date.now();
 
   console.log(`Game started in lobby ${lobbyId}. First holder: ${firstHolder}`);
+
   broadcastLobby(lobbyId);
 
   lobby.interval = setInterval(() => gameLoop(lobbyId), 100);
