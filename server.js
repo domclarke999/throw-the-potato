@@ -9,16 +9,15 @@ const PORT = process.env.PORT || 3000;
 app.use(express.static("."));
 
 // --- Constants ---
-const MIN_PLAYERS = 2;
-const MAX_PLAYERS_PER_LOBBY = 100;
+const MIN_PLAYERS = 2;  // change to 10 for production
 
 // --- Game state ---
-let players = {}; // pid -> { ws, lobbyId, holding, alive, lat, lon, holdStartTime }
-let lobbies = {}; // lobbyId -> { id, players: [], gameStarted, potato, interval }
+let players = {}; // pid -> { ws, alive, holding, lobbyId, holdStartTime, lat, lon }
+let lobbies = {}; // lobbyId -> { players: [], gameStarted, potato, interval }
 
 // --- Utilities ---
 function generateId(len = 5) {
-  return Math.random().toString(36).substring(2, 2 + len);
+  return Math.random().toString(36).substr(2, len);
 }
 
 function broadcast(lobbyId, data) {
@@ -26,51 +25,44 @@ function broadcast(lobbyId, data) {
   if (!lobby) return;
   const msg = JSON.stringify(data);
   lobby.players.forEach(pid => {
-    const p = players[pid];
-    if (p) p.ws.send(msg);
+    if (players[pid]) players[pid].ws.send(msg);
   });
 }
 
-// --- Lobby Management ---
+// --- Lobby ---
 function createLobby() {
   const id = generateId(6);
   lobbies[id] = {
-    id,
     players: [],
     gameStarted: false,
     potato: { holder: null, inFlight: false, vx: 0, vy: 0, lastLauncher: null },
     interval: null
   };
-  console.log(`Created lobby ${id}`);
   return lobbies[id];
 }
 
-function getOpenLobby() {
-  return Object.values(lobbies).find(l => !l.gameStarted && l.players.length < MAX_PLAYERS_PER_LOBBY);
-}
-
 function addPlayerToLobby(pid) {
-  let lobby = getOpenLobby();
+  let lobby = Object.values(lobbies).find(l => !l.gameStarted && l.players.length < 100);
   if (!lobby) lobby = createLobby();
 
   lobby.players.push(pid);
   players[pid].lobbyId = lobby.id;
-  console.log(`Player ${pid} joined lobby ${lobby.id}. Total: ${lobby.players.length}`);
 
-  sendLobbyUpdate(lobby.id);
+  // Broadcast lobby state (waiting or game)
+  broadcastLobby(lobby.id);
 
+  // Start game only if enough players
   if (!lobby.gameStarted && lobby.players.length >= MIN_PLAYERS) {
     startGame(lobby.id);
   }
 }
 
-function sendLobbyUpdate(lobbyId) {
+function broadcastLobby(lobbyId) {
   const lobby = lobbies[lobbyId];
   if (!lobby) return;
-  const type = lobby.gameStarted ? "gameUpdate" : "lobbyUpdate";
+  const type = lobby.gameStarted ? "update" : "waiting";
   broadcast(lobbyId, {
     type,
-    lobbyId: lobby.id,
     players: lobby.players,
     potato: lobby.potato,
     minPlayers: MIN_PLAYERS,
@@ -78,7 +70,7 @@ function sendLobbyUpdate(lobbyId) {
   });
 }
 
-// --- Game Management ---
+// --- Game ---
 function startGame(lobbyId) {
   const lobby = lobbies[lobbyId];
   if (!lobby) return;
@@ -90,7 +82,7 @@ function startGame(lobbyId) {
   players[firstHolder].holding = true;
   players[firstHolder].holdStartTime = Date.now();
 
-  sendLobbyUpdate(lobbyId);
+  broadcastLobby(lobbyId);
 
   lobby.interval = setInterval(() => gameLoop(lobbyId), 100);
 }
@@ -100,6 +92,7 @@ function gameLoop(lobbyId) {
   if (!lobby) return;
   const potato = lobby.potato;
 
+  // Potato in flight
   if (potato.inFlight) {
     potato.lat += potato.vy;
     potato.lon += potato.vx;
@@ -114,12 +107,13 @@ function gameLoop(lobbyId) {
         potato.holder = pid;
         p.holding = true;
         p.holdStartTime = Date.now();
-        sendLobbyUpdate(lobbyId);
+        broadcastLobby(lobbyId);
         break;
       }
     }
   }
 
+  // Elimination after 5 minutes
   for (const pid of lobby.players) {
     const p = players[pid];
     if (!p.holding || !p.alive) continue;
@@ -132,10 +126,11 @@ function gameLoop(lobbyId) {
         players[returnTo].holding = true;
         players[returnTo].holdStartTime = Date.now();
       }
-      sendLobbyUpdate(lobbyId);
+      broadcastLobby(lobbyId);
     }
   }
 
+  // Winner detection
   const alive = lobby.players.filter(pid => players[pid]?.alive);
   if (alive.length === 1) {
     broadcast(lobbyId, { type: "winner", player: alive[0] });
@@ -143,15 +138,17 @@ function gameLoop(lobbyId) {
     return;
   }
 
+  // Potato nearby vibration
   for (const pid of lobby.players) {
     const p = players[pid];
     if (!p.alive || p.holding) continue;
     const dx = (p.lon - potato.lon) * 111111;
     const dy = (p.lat - potato.lat) * 111111;
-    if (Math.hypot(dx, dy) < 50) p.ws.send(JSON.stringify({ type: "potatoNearby" }));
+    const distance = Math.hypot(dx, dy);
+    if (distance < 50) p.ws.send(JSON.stringify({ type: "potatoNearby" }));
   }
 
-  sendLobbyUpdate(lobbyId);
+  broadcastLobby(lobbyId);
 }
 
 function resetLobby(lobbyId) {
@@ -169,7 +166,7 @@ function resetLobby(lobbyId) {
       p.holdStartTime = null;
     }
   });
-  sendLobbyUpdate(lobbyId);
+  broadcastLobby(lobbyId);
 }
 
 // --- WebSocket ---
@@ -181,7 +178,7 @@ wss.on("connection", ws => {
 
   addPlayerToLobby(pid);
 
-  ws.send(JSON.stringify({ type: "joined", playerId: pid }));
+  ws.send(JSON.stringify({ type: "joinedLobby", playerId: pid }));
 
   ws.on("message", msg => {
     const data = JSON.parse(msg);
@@ -196,7 +193,7 @@ wss.on("connection", ws => {
       lobby.potato.lastLauncher = pid;
       players[pid].holding = false;
       lobby.potato.holder = null;
-      sendLobbyUpdate(lobbyId);
+      broadcastLobby(lobbyId);
     }
 
     if (data.type === "location") {
@@ -210,7 +207,7 @@ wss.on("connection", ws => {
     delete players[pid];
     if (lobbies[lobbyId]) {
       lobbies[lobbyId].players = lobbies[lobbyId].players.filter(p => p !== pid);
-      sendLobbyUpdate(lobbyId);
+      broadcastLobby(lobbyId);
     }
   });
 });
