@@ -7,7 +7,7 @@ const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 3000;
 
-// Serve static files
+// Serve static front-end files
 app.use(express.static("."));
 
 // --- Game state ---
@@ -29,6 +29,7 @@ function broadcast(lobbyId, data) {
   });
 }
 
+// Create a new lobby
 function createLobby() {
   const id = generateId(6);
   lobbies[id] = {
@@ -40,14 +41,12 @@ function createLobby() {
   return id;
 }
 
+// Add a player to a lobby
 function addPlayerToLobby(pid) {
-  let lobbyId = null;
-  for (const id in lobbies) {
-    if (!lobbies[id].gameStarted && lobbies[id].players.length < 100) {
-      lobbyId = id;
-      break;
-    }
-  }
+  let lobbyId = Object.values(lobbies).find(
+    l => !l.gameStarted && l.players.length < 100
+  )?.id;
+
   if (!lobbyId) lobbyId = createLobby();
 
   lobbies[lobbyId].players.push(pid);
@@ -57,10 +56,10 @@ function addPlayerToLobby(pid) {
 
   broadcast(lobbyId, { type: "lobbyUpdate", players: lobbies[lobbyId].players });
 
-  // Auto-start game when 2+ players (change for production)
   if (!lobbies[lobbyId].gameStarted && lobbies[lobbyId].players.length >= 2) startGame(lobbyId);
 }
 
+// Start the game
 function startGame(lobbyId) {
   const lobby = lobbies[lobbyId];
   if (!lobby) return;
@@ -78,6 +77,7 @@ function startGame(lobbyId) {
   lobby.interval = setInterval(() => gameLoop(lobbyId), 100);
 }
 
+// Game loop
 function gameLoop(lobbyId) {
   const lobby = lobbies[lobbyId];
   if (!lobby) return;
@@ -142,27 +142,30 @@ function gameLoop(lobbyId) {
   broadcast(lobbyId, { type: "update", players: lobby.players, potato });
 }
 
+// Reset lobby after game
 function resetLobby(lobbyId) {
   const lobby = lobbies[lobbyId];
   if (!lobby) return;
+
   clearInterval(lobby.interval);
   lobby.interval = null;
   lobby.gameStarted = false;
+
   lobby.potato = { holder: null, inFlight: false, vx: 0, vy: 0, lastLauncher: null };
 
-  for (const pid of lobby.players) {
+  lobby.players.forEach(pid => {
     const p = players[pid];
     if (p) {
       p.alive = true;
       p.holding = false;
       p.holdStartTime = null;
     }
-  }
+  });
 
   broadcast(lobbyId, { type: "lobbyUpdate", players: lobby.players });
 }
 
-// WebSocket
+// --- WebSocket ---
 const wss = new WebSocketServer({ server });
 
 wss.on("connection", ws => {
@@ -182,11 +185,7 @@ wss.on("connection", ws => {
 
     // --- Launch potato ---
     if (data.type === "launch") {
-      if (lobby.potato.holder !== pid) {
-        console.log(`Player ${pid} tried to throw but is not holder`);
-        return;
-      }
-
+      if (lobby.potato.holder !== pid) return; // only holder can throw
       lobby.potato.vx = data.vx * 0.00001;
       lobby.potato.vy = data.vy * 0.00001;
       lobby.potato.inFlight = true;
