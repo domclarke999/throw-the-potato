@@ -7,7 +7,7 @@ const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 3000;
 
-// Serve static front-end files
+// Serve static files (index.html + client.js)
 app.use(express.static("."));
 
 // --- Game constants ---
@@ -47,7 +47,6 @@ function createLobby() {
 }
 
 function addPlayerToLobby(pid) {
-  // Find first open lobby
   let lobbyId = Object.values(lobbies).find(
     l => !l.gameStarted && l.players.length < MAX_PLAYERS_PER_LOBBY
   )?.id;
@@ -59,9 +58,14 @@ function addPlayerToLobby(pid) {
 
   console.log(`Player ${pid} joined lobby ${lobbyId}. Total: ${lobbies[lobbyId].players.length}`);
 
-  broadcast(lobbyId, { type: "lobbyUpdate", players: lobbies[lobbyId].players, gameStarted: lobbies[lobbyId].gameStarted, minPlayers: MIN_PLAYERS });
+  broadcast(lobbyId, { 
+    type: "lobbyUpdate", 
+    players: lobbies[lobbyId].players, 
+    gameStarted: lobbies[lobbyId].gameStarted, 
+    minPlayers: MIN_PLAYERS 
+  });
 
-  // --- Start game only if enough players ---
+  // Start game only if enough players
   if (!lobbies[lobbyId].gameStarted && lobbies[lobbyId].players.length >= MIN_PLAYERS) {
     startGame(lobbyId);
   } else if (!lobbies[lobbyId].gameStarted) {
@@ -170,7 +174,12 @@ function resetLobby(lobbyId) {
     }
   });
 
-  broadcast(lobbyId, { type: "lobbyUpdate", players: lobby.players, gameStarted: false, minPlayers: MIN_PLAYERS });
+  broadcast(lobbyId, { 
+    type: "lobbyUpdate", 
+    players: lobby.players, 
+    gameStarted: false, 
+    minPlayers: MIN_PLAYERS 
+  });
 }
 
 // --- WebSocket ---
@@ -216,7 +225,12 @@ wss.on("connection", ws => {
     delete players[pid];
     if (lobbies[lobbyId]) {
       lobbies[lobbyId].players = lobbies[lobbyId].players.filter(x => x !== pid);
-      broadcast(lobbyId, { type: "lobbyUpdate", players: lobbies[lobbyId].players, gameStarted: lobbies[lobbyId].gameStarted, minPlayers: MIN_PLAYERS });
+      broadcast(lobbyId, { 
+        type: "lobbyUpdate", 
+        players: lobbies[lobbyId].players, 
+        gameStarted: lobbies[lobbyId].gameStarted, 
+        minPlayers: MIN_PLAYERS 
+      });
     }
   });
 });
