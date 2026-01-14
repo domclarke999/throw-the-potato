@@ -1,5 +1,4 @@
-const MIN_PLAYERS = 2; // should match server
-
+const MIN_PLAYERS = 2; // must match server
 const ws = new WebSocket(`ws://${location.host}`);
 
 let playerId = null;
@@ -24,6 +23,13 @@ ws.onmessage = e => {
     } else {
       document.getElementById("status").innerText = `Game in progress!`;
     }
+
+    // Show all players and potato holder
+    const html = data.players.map(p => {
+      const hasPotato = (data.potato && data.potato.holder === p) ? "🥔" : "";
+      return `${p} ${hasPotato}`;
+    }).join("<br>");
+    document.getElementById("lobby").innerHTML = html;
   }
 
   if (data.type === "gameStarted") {
@@ -33,6 +39,20 @@ ws.onmessage = e => {
     } else {
       document.getElementById("status").innerText = `Player ${holder} has the potato!`;
     }
+  }
+
+  if (data.type === "update") {
+    const holder = data.potato.holder;
+    let statusText = holder === playerId ? "You have the potato!" :
+                     holder ? `Player ${holder} has the potato!` :
+                     "Potato in flight!";
+    document.getElementById("status").innerText = statusText;
+
+    const html = data.players.map(p => {
+      const hasPotato = (holder === p) ? "🥔" : "";
+      return `${p} ${hasPotato}`;
+    }).join("<br>");
+    document.getElementById("lobby").innerHTML = html;
   }
 
   if (data.type === "potatoNearby") {
