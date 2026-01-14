@@ -53,10 +53,12 @@ function createLobby() {
 function addPlayerToLobby(pid, lobbyId) {
   const lobby = lobbies[lobbyId];
   if (!lobby) return;
+
   lobby.players.push(pid);
   players[pid].currentLobbyId = lobbyId;
 
   console.log(`Player ${pid} joined lobby ${lobbyId}. Total players: ${lobby.players.length}`);
+  console.log(`Game started: ${lobby.gameStarted}`);
 
   broadcastToLobby(lobbyId, {
     type: "lobbyUpdate",
@@ -64,9 +66,6 @@ function addPlayerToLobby(pid, lobbyId) {
     players: lobby.players,
     gameStarted: lobby.gameStarted
   });
-
-  // Auto-start game when 2+ players (for testing)
-  if (!lobby.gameStarted && lobby.players.length >= 2) startGame(lobbyId);
 }
 
 // --- Game Logic ---
@@ -75,6 +74,8 @@ function startGame(lobbyId) {
   if (!lobby) return;
 
   lobby.gameStarted = true;
+
+  // Pick random player to hold potato first
   const idx = Math.floor(Math.random() * lobby.players.length);
   const firstHolder = lobby.players[idx];
   lobby.potato.holder = firstHolder;
@@ -84,6 +85,7 @@ function startGame(lobbyId) {
   console.log(`Game started in lobby ${lobbyId}. First holder: ${firstHolder}`);
   broadcastToLobby(lobbyId, { type: "gameStarted", potatoHolder: firstHolder });
 
+  // Start game loop
   lobby.interval = setInterval(() => gameLoop(lobbyId), 100);
 }
 
@@ -190,9 +192,20 @@ wss.on("connection", ws => {
   players[pid] = { ws, alive: true, holding: false, lastLauncher: null, holdStartTime: null, lat:0, lon:0, currentLobbyId: null };
 
   // Assign to first available lobby
-  let lobbyId = Object.values(lobbies).find(l => !l.gameStarted && l.players.length < 100)?.id;
+  let lobbyId = null;
+  for (let l of Object.values(lobbies)) {
+    if (!l.gameStarted && l.players.length < 100) {
+      lobbyId = l.id;
+      break;
+    }
+  }
   if (!lobbyId) lobbyId = createLobby();
+
   addPlayerToLobby(pid, lobbyId);
+
+  // Force immediate start for testing (2+ players)
+  const lobby = lobbies[lobbyId];
+  if (!lobby.gameStarted && lobby.players.length >= 2) startGame(lobbyId);
 
   ws.send(JSON.stringify({ type: "joinedLobby", id: pid, lobbyId }));
 
