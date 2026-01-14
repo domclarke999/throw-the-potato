@@ -1,27 +1,23 @@
-const MIN_PLAYERS = 2;
 const ws = new WebSocket(`ws://${location.host}`);
 
 let playerId = null;
 let lobbyId = null;
 
-ws.onopen = () => console.log("Connected to server");
-
 ws.onmessage = e => {
   const data = JSON.parse(e.data);
 
-  if (data.type === "joinedLobby") {
-    playerId = data.id;
-    lobbyId = data.lobbyId;
+  if (data.type === "joined") {
+    playerId = data.playerId;
   }
 
-  if (data.type === "waiting") {
+  if (data.type === "lobbyUpdate") {
     document.getElementById("status").innerText =
-      `Waiting for players: ${data.players.length} / ${MIN_PLAYERS}`;
+      `Waiting for players: ${data.players.length} / ${data.minPlayers}`;
     document.getElementById("throwBtn").style.display = "none";
     renderLobby(data.players, data.potato);
   }
 
-  if (data.type === "update") {
+  if (data.type === "gameUpdate") {
     const holder = data.potato.holder;
     const status = holder === playerId ? "You have the potato!" :
                    holder ? `Player ${holder} has the potato!` : "Potato in flight!";
