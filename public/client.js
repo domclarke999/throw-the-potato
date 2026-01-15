@@ -34,10 +34,10 @@ const ws = new WebSocket(`${protocol}://${location.host}`);
 
 let playerDivs = {};
 
-// vibration helper
+// Vibration helper
 function vibrate() { navigator.vibrate?.([200,100,200]); }
 
-// Update players as circles
+// Render players as circles
 function updatePlayers(players) {
   playersContainer.innerHTML = "";
   playerDivs = {};
@@ -45,10 +45,9 @@ function updatePlayers(players) {
   players.forEach((pid, idx) => {
     const div = document.createElement("div");
     div.classList.add("player");
-    // Optionally show index or emoji
     div.innerText = "🙂";
     div.style.position = "absolute";
-    div.style.left = `${spacing * (idx + 1) - 30}px`; // center circle
+    div.style.left = `${spacing * (idx + 1) - 30}px`;
     div.style.top = `70px`;
     playerDivs[pid] = div;
     playersContainer.appendChild(div);
@@ -69,7 +68,7 @@ function initPotatoPosition(holderId) {
   potato.style.transform = `translate(${x}px, ${y}px)`;
 }
 
-// Animate potato fly
+// Animate potato flying to a new holder
 function movePotatoTo(newHolderId) {
   const target = playerDivs[newHolderId];
   if (!target) return;
@@ -77,7 +76,7 @@ function movePotatoTo(newHolderId) {
   const containerRect = playersContainer.getBoundingClientRect();
   const targetRect = target.getBoundingClientRect();
 
-  // start from last holder if exists
+  // Start from last holder if exists
   if (lastHolder) {
     const lastRect = playerDivs[lastHolder].getBoundingClientRect();
     const startX = lastRect.left - containerRect.left + lastRect.width/2 - potato.offsetWidth/2;
@@ -96,7 +95,7 @@ function movePotatoTo(newHolderId) {
   });
 }
 
-// Start countdown timer
+// Countdown timer
 function startCountdown(duration) {
   clearInterval(countdownInterval);
   let remaining = duration;
@@ -150,7 +149,7 @@ ws.onmessage = e => {
         gameText.innerText = "🥔 Someone else has the potato";
         throwBtn.disabled = true;
       }
-    }, 1000); // match CSS transition duration
+    }, 1000); // match CSS transition
   }
 };
 
