@@ -2,25 +2,20 @@
 <html>
 <head>
   <title>Throw the Potato</title>
-  <style>
-    body { font-family: Arial; text-align: center; }
-    #game { display: none; }
-    button { padding: 10px 20px; font-size: 18px; }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 </head>
 <body>
+  <h1>🥔 Throw the Potato</h1>
 
-<h1>🥔 Throw the Potato</h1>
+  <div id="lobby">
+    <h2 id="lobbyText">Waiting...</h2>
+  </div>
 
-<div id="lobby">
-  <h2 id="lobbyText">Waiting...</h2>
-</div>
+  <div id="game" style="display:none">
+    <h2 id="gameText"></h2>
+    <button id="throwBtn" disabled>Throw Potato</button>
+  </div>
 
-<div id="game">
-  <h2 id="gameText"></h2>
-  <button id="throwBtn">Throw Potato</button>
-</div>
-
-<script src="client.js"></script>
+  <script src="client.js"></script>
 </body>
 </html>
