@@ -1,27 +1,42 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🥔 Throw the Potato</title>
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <title>Throw the Potato</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <h1>🥔 Throw the Potato</h1>
 
 <div id="lobby">
-  <h2 id="lobbyText">Waiting for players...</h2>
+  <p id="status">Waiting for players...</p>
+
+  <div id="hostControls" hidden>
+    <label>
+      Number of players:
+      <select id="playerSelect">
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+      </select>
+    </label>
+    <button id="startBtn">Set Game</button>
+  </div>
 </div>
 
-<div id="game" style="display:none">
-  <div id="playersContainer"></div>
-  <div id="potato">🥔</div>
-  <h2 id="gameText"></h2>
-  <div id="timer"></div>
+<div id="game" hidden>
+  <div id="arena">
+    <img id="potato" src="potato.png" />
+  </div>
+
   <button id="throwBtn" disabled>Throw Potato</button>
 </div>
 
+<audio id="incomingSound" src="incoming.wav" preload="auto"></audio>
+
+<script src="/socket.io/socket.io.js"></script>
 <script src="client.js"></script>
+
 </body>
 </html>
