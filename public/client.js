@@ -1,31 +1,23 @@
-console.log("client.js loaded");
+console.log("client loaded");
 
 const status = document.getElementById("status");
 
-// IMPORTANT: protocol-safe WebSocket
 const protocol = location.protocol === "https:" ? "wss" : "ws";
 const ws = new WebSocket(`${protocol}://${location.host}`);
 
 ws.onopen = () => {
-  console.log("WebSocket OPEN");
-  status.innerText = "WebSocket connected";
-};
-
-ws.onerror = err => {
-  console.error("WebSocket error", err);
-  status.innerText = "WebSocket ERROR";
+  status.innerText = "Connected. Waiting for players...";
 };
 
 ws.onmessage = e => {
-  console.log("Message from server:", e.data);
+  console.log("Server:", e.data);
   const msg = JSON.parse(e.data);
 
   if (msg.type === "lobby") {
-    status.innerText =
-      `WAITING: ${msg.players.length}/${msg.minPlayers}`;
+    status.innerText = `Waiting: ${msg.count}/${msg.min}`;
   }
 
   if (msg.type === "gameStarted") {
-    status.innerText = "GAME STARTED";
+    status.innerText = "🎉 GAME STARTED!";
   }
 };
