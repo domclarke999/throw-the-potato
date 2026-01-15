@@ -4,23 +4,21 @@ const lobbyText = document.getElementById("lobbyText");
 const gameText = document.getElementById("gameText");
 const timerText = document.getElementById("timer");
 const throwBtn = document.getElementById("throwBtn");
+const playersContainer = document.getElementById("playersContainer");
 const potato = document.getElementById("potato");
 
 let myId = null;
 let lastHolder = null;
 let audioUnlocked = false;
-
 const audio = new Audio("incoming.wav");
 
-// Unlock audio on first user interaction (iOS Safari requirement)
 function unlockAudio() {
   if (!audioUnlocked) {
     audio.play().then(() => {
       audio.pause();
       audio.currentTime = 0;
       audioUnlocked = true;
-      console.log("Audio unlocked for iOS");
-    }).catch(e => console.log(e));
+    }).catch(() => {});
   }
 }
 
@@ -34,10 +32,34 @@ function vibrate() {
   navigator.vibrate?.([200, 100, 200]);
 }
 
-// Animate potato throw
-function animateThrow() {
-  potato.classList.add("throw");
-  setTimeout(() => potato.classList.remove("throw"), 600);
+// Store player divs for positioning
+const playerDivs = {};
+
+function updatePlayers(players) {
+  playersContainer.innerHTML = "";
+  playerDivs = {};
+  players.forEach((pid, idx) => {
+    const div = document.createElement("div");
+    div.classList.add("player");
+    div.innerText = pid;
+    div.dataset.pid = pid;
+    div.style.left = `${idx * 80}px`;
+    playerDivs[pid] = div;
+    playersContainer.appendChild(div);
+  });
+}
+
+function movePotatoTo(pid) {
+  const target = playerDivs[pid];
+  if (!target) return;
+
+  const containerRect = playersContainer.getBoundingClientRect();
+  const targetRect = target.getBoundingClientRect();
+
+  const x = targetRect.left - containerRect.left + targetRect.width/2 - potato.offsetWidth/2;
+  const y = targetRect.top - containerRect.top + targetRect.height/2 - potato.offsetHeight/2;
+
+  potato.style.transform = `translate(${x}px, ${y}px)`;
 }
 
 ws.onmessage = e => {
@@ -47,8 +69,7 @@ ws.onmessage = e => {
   if (msg.type === "lobby") {
     lobbyDiv.style.display = "block";
     gameDiv.style.display = "none";
-    lobbyText.innerText =
-      `Waiting for players: ${msg.players.length}/${msg.minPlayers}`;
+    lobbyText.innerText = `Waiting for players: ${msg.players.length}/${msg.minPlayers}`;
     return;
   }
 
@@ -60,17 +81,22 @@ ws.onmessage = e => {
   lobbyDiv.style.display = "none";
   gameDiv.style.display = "block";
 
+  updatePlayers(msg.players);
+
   if (msg.timeRemaining != null) {
     timerText.innerText = `⏱ ${Math.ceil(msg.timeRemaining / 1000)}s`;
   }
 
-  // Play sound + vibration when player receives potato
-  if (msg.potatoHolder === myId && lastHolder !== myId) {
-    if (audioUnlocked) audio.play().catch(() => {});
-    vibrate();
+  // Animate potato moving to new holder
+  if (msg.potatoHolder && lastHolder !== msg.potatoHolder) {
+    movePotatoTo(msg.potatoHolder);
+
+    if (msg.potatoHolder === myId && audioUnlocked) {
+      audio.play().catch(() => {});
+      vibrate();
+    }
   }
 
-  // Update throw button + text
   if (msg.potatoHolder === myId) {
     gameText.innerText = "🔥 YOU HAVE THE POTATO!";
     throwBtn.disabled = false;
@@ -83,6 +109,5 @@ ws.onmessage = e => {
 };
 
 throwBtn.onclick = () => {
-  animateThrow();
   ws.send(JSON.stringify({ type: "throw" }));
 };
