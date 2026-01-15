@@ -17,6 +17,12 @@ const throwBtn = document.getElementById("throwBtn");
 const timerEl = document.getElementById("timer");
 const sound = document.getElementById("incomingSound");
 
+const forfeitScreen = document.createElement("div");
+forfeitScreen.id = "forfeit";
+forfeitScreen.innerHTML = `<h2>You are eliminated!</h2><p>Forfeit challenge: Take a funny dare!</p>`;
+forfeitScreen.style.display = "none";
+document.body.appendChild(forfeitScreen);
+
 let myId;
 let myName;
 let potatoHolder;
@@ -49,6 +55,7 @@ socket.on("lobbyUpdate", ({waiting, required}) => {
 
 // Game start
 socket.on("gameStart", data => {
+  myId = socket.id;
   players = data.players;
   potatoHolder = data.potatoHolder;
   lobby.hidden = true;
@@ -73,6 +80,18 @@ socket.on("potatoThrown", ({ to }) => {
     navigator.vibrate?.(200);
     startTimer(30);
   }
+});
+
+// First player eliminated
+socket.on("playerEliminated", ({ player, name }) => {
+  if (player === socket.id) {
+    game.hidden = true;
+    forfeitScreen.style.display = "block";
+  } else {
+    game.hidden = true;
+    alert(`${name} was eliminated! Game over.`);
+  }
+  stopTimer();
 });
 
 // Animation
