@@ -9,9 +9,12 @@ const potato = document.getElementById("potato");
 
 let myId = null;
 let lastHolder = null;
+let potatoInFlight = false;
 let audioUnlocked = false;
+
 const audio = new Audio("incoming.wav");
 
+// iOS Safari audio unlock
 function unlockAudio() {
   if (!audioUnlocked) {
     audio.play().then(() => {
@@ -28,12 +31,11 @@ document.body.addEventListener("touchstart", unlockAudio, { once: true });
 const protocol = location.protocol === "https:" ? "wss" : "ws";
 const ws = new WebSocket(`${protocol}://${location.host}`);
 
+let playerDivs = {};
+
 function vibrate() {
   navigator.vibrate?.([200, 100, 200]);
 }
-
-// Store player divs for positioning
-const playerDivs = {};
 
 function updatePlayers(players) {
   playersContainer.innerHTML = "";
@@ -87,27 +89,28 @@ ws.onmessage = e => {
     timerText.innerText = `⏱ ${Math.ceil(msg.timeRemaining / 1000)}s`;
   }
 
-  // Animate potato moving to new holder
+  // Animate potato flying to new holder
   if (msg.potatoHolder && lastHolder !== msg.potatoHolder) {
     movePotatoTo(msg.potatoHolder);
 
-    if (msg.potatoHolder === myId && audioUnlocked) {
-      audio.play().catch(() => {});
+    if (msg.potatoHolder === myId) {
+      if (audioUnlocked) audio.play().catch(() => {});
       vibrate();
+      potatoInFlight = false;
+      throwBtn.disabled = false;
+    } else {
+      potatoInFlight = true;
+      throwBtn.disabled = true;
     }
-  }
-
-  if (msg.potatoHolder === myId) {
-    gameText.innerText = "🔥 YOU HAVE THE POTATO!";
-    throwBtn.disabled = false;
-  } else {
-    gameText.innerText = "🥔 Someone else has the potato";
-    throwBtn.disabled = true;
   }
 
   lastHolder = msg.potatoHolder;
 };
 
 throwBtn.onclick = () => {
-  ws.send(JSON.stringify({ type: "throw" }));
+  if (!potatoInFlight) {
+    potatoInFlight = true;
+    throwBtn.disabled = true;
+    ws.send(JSON.stringify({ type: "throw" }));
+  }
 };
