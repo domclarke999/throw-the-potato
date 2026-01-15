@@ -1,163 +1,79 @@
-const lobbyDiv = document.getElementById("lobby");
-const gameDiv = document.getElementById("game");
-const lobbyText = document.getElementById("lobbyText");
-const gameText = document.getElementById("gameText");
-const timerText = document.getElementById("timer");
+const socket = io();
+
+const status = document.getElementById("status");
+const lobby = document.getElementById("lobby");
+const game = document.getElementById("game");
 const throwBtn = document.getElementById("throwBtn");
-const playersContainer = document.getElementById("playersContainer");
 const potato = document.getElementById("potato");
+const sound = document.getElementById("incomingSound");
+
+const hostControls = document.getElementById("hostControls");
+const playerSelect = document.getElementById("playerSelect");
+const startBtn = document.getElementById("startBtn");
 
 let myId = null;
-let lastHolder = null;
-let potatoInFlight = false;
-let audioUnlocked = false;
-let countdownInterval = null;
+let potatoHolder = null;
 
-const audio = new Audio("incoming.wav");
+socket.on("connect", () => {
+  myId = socket.id;
+});
 
-// Unlock audio for iOS Safari
-function unlockAudio() {
-  if (!audioUnlocked) {
-    audio.play().then(() => { 
-      audio.pause(); 
-      audio.currentTime = 0; 
-      audioUnlocked = true; 
-    }).catch(()=>{});
-  }
-}
+// HOST
+socket.on("host", () => {
+  hostControls.hidden = false;
+});
 
-document.body.addEventListener("click", unlockAudio, { once:true });
-document.body.addEventListener("touchstart", unlockAudio, { once:true });
-
-const protocol = location.protocol === "https:" ? "wss" : "ws";
-const ws = new WebSocket(`${protocol}://${location.host}`);
-
-let playerDivs = {};
-
-// vibration helper
-function vibrate() { navigator.vibrate?.([200,100,200]); }
-
-// Update player circles
-function updatePlayers(players) {
-  playersContainer.innerHTML = "";
-  playerDivs = {};
-  const spacing = playersContainer.clientWidth / (players.length + 1);
-  players.forEach((pid, idx) => {
-    const div = document.createElement("div");
-    div.classList.add("player");
-    div.innerText = "🙂";
-    div.style.position = "absolute";
-    div.style.left = `${spacing * (idx + 1) - 30}px`;
-    div.style.top = `70px`;
-    playerDivs[pid] = div;
-    playersContainer.appendChild(div);
-  });
-}
-
-// Initialize potato at current holder
-function initPotatoPosition(holderId) {
-  const target = playerDivs[holderId];
-  if (!target) return;
-
-  const containerRect = playersContainer.getBoundingClientRect();
-  const targetRect = target.getBoundingClientRect();
-
-  const x = targetRect.left - containerRect.left + targetRect.width/2 - potato.offsetWidth/2;
-  const y = targetRect.top - containerRect.top + targetRect.height/2 - potato.offsetHeight/2;
-
-  potato.style.transform = `translate(${x}px, ${y}px)`;
-}
-
-// Animate potato fly
-function movePotatoTo(newHolderId) {
-  const target = playerDivs[newHolderId];
-  if (!target) return;
-
-  const containerRect = playersContainer.getBoundingClientRect();
-  const targetRect = target.getBoundingClientRect();
-
-  // start from last holder if exists
-  if (lastHolder) {
-    const lastRect = playerDivs[lastHolder].getBoundingClientRect();
-    const startX = lastRect.left - containerRect.left + lastRect.width/2 - potato.offsetWidth/2;
-    const startY = lastRect.top - containerRect.top + lastRect.height/2 - potato.offsetHeight/2;
-    potato.style.transform = `translate(${startX}px, ${startY}px)`;
-  }
-
-  const x = targetRect.left - containerRect.left + targetRect.width/2 - potato.offsetWidth/2;
-  const y = targetRect.top - containerRect.top + targetRect.height/2 - potato.offsetHeight/2;
-
-  // Double requestAnimationFrame ensures animation triggers
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      potato.style.transform = `translate(${x}px, ${y}px)`;
-    });
-  });
-}
-
-// Countdown timer
-function startCountdown(duration) {
-  clearInterval(countdownInterval);
-  let remaining = duration;
-  timerText.innerText = `${remaining}s`;
-  countdownInterval = setInterval(() => {
-    remaining--;
-    timerText.innerText = `${remaining}s`;
-    if (remaining <= 0) clearInterval(countdownInterval);
-  }, 1000);
-}
-
-// WebSocket messages
-ws.onmessage = e => {
-  const msg = JSON.parse(e.data);
-  myId = msg.yourId;
-
-  if (msg.type === "lobby") {
-    lobbyDiv.style.display = "block";
-    gameDiv.style.display = "none";
-    lobbyText.innerText = `Waiting for players: ${msg.players.length}/${msg.minPlayers}`;
-    return;
-  }
-
-  if (msg.type === "winner") {
-    alert("🏆 You win!");
-    return;
-  }
-
-  lobbyDiv.style.display = "none";
-  gameDiv.style.display = "block";
-
-  updatePlayers(msg.players);
-
-  if (msg.timeRemaining != null) startCountdown(Math.ceil(msg.timeRemaining / 1000));
-
-  // Animate potato fly
-  if (msg.potatoHolder && lastHolder !== msg.potatoHolder) {
-    potatoInFlight = true;
-    movePotatoTo(msg.potatoHolder);
-
-    setTimeout(() => {
-      potatoInFlight = false;
-      lastHolder = msg.potatoHolder;
-
-      if (msg.potatoHolder === myId) {
-        gameText.innerText = "🔥 YOU HAVE THE POTATO!";
-        throwBtn.disabled = false;
-        if (audioUnlocked) audio.play().catch(()=>{});
-        vibrate();
-      } else {
-        gameText.innerText = "🥔 Someone else has the potato";
-        throwBtn.disabled = true;
-      }
-    }, 1000); // match CSS transition
-  }
+startBtn.onclick = () => {
+  socket.emit("setPlayerCount", Number(playerSelect.value));
+  hostControls.hidden = true;
 };
 
-// Throw button
+// LOBBY
+socket.on("playerCount", (count) => {
+  status.textContent = `Players joined: ${count}`;
+});
+
+socket.on("lobbyUpdate", (required) => {
+  status.textContent = `Waiting for ${required} players...`;
+});
+
+// GAME START
+socket.on("gameStart", (data) => {
+  lobby.hidden = true;
+  game.hidden = false;
+
+  potatoHolder = data.potatoHolder;
+  updateUI();
+});
+
+// THROW
 throwBtn.onclick = () => {
-  if (!potatoInFlight) {
-    potatoInFlight = true;
-    throwBtn.disabled = true;
-    ws.send(JSON.stringify({ type: "throw" }));
-  }
+  socket.emit("throwPotato");
 };
+
+socket.on("potatoThrown", ({ from, to }) => {
+  animatePotato(from, to);
+  potatoHolder = to;
+  updateUI();
+
+  if (to === myId) {
+    playSound();
+  }
+});
+
+function updateUI() {
+  throwBtn.disabled = myId !== potatoHolder;
+}
+
+// ANIMATION
+function animatePotato(from, to) {
+  potato.classList.remove("fly");
+  void potato.offsetWidth;
+  potato.classList.add("fly");
+}
+
+// SOUND (mobile-safe)
+function playSound() {
+  sound.currentTime = 0;
+  sound.play().catch(() => {});
+}
