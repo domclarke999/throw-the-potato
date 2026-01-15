@@ -12,6 +12,12 @@ const ws = new WebSocket(`${protocol}://${location.host}`);
 ws.onmessage = e => {
   const msg = JSON.parse(e.data);
 
+  // ✅ STORE PLAYER ID
+  if (msg.type === "welcome") {
+    playerId = msg.playerId;
+    console.log("My playerId:", playerId);
+  }
+
   if (msg.type === "lobby") {
     lobbyDiv.style.display = "block";
     gameDiv.style.display = "none";
