@@ -14,7 +14,7 @@ let audioUnlocked = false;
 
 const audio = new Audio("incoming.wav");
 
-// Unlock audio for iOS
+// Unlock audio for iOS Safari
 function unlockAudio() {
   if (!audioUnlocked) {
     audio.play().then(() => { audio.pause(); audio.currentTime = 0; audioUnlocked = true; }).catch(()=>{});
@@ -29,19 +29,21 @@ const ws = new WebSocket(`${protocol}://${location.host}`);
 
 let playerDivs = {};
 
-function vibrate() {
-  navigator.vibrate?.([200,100,200]);
-}
+// vibration helper
+function vibrate() { navigator.vibrate?.([200,100,200]); }
 
+// Update player circles
 function updatePlayers(players) {
   playersContainer.innerHTML = "";
   playerDivs = {};
   players.forEach((pid, idx) => {
     const div = document.createElement("div");
     div.classList.add("player");
-    div.innerText = pid;
-    div.dataset.pid = pid;
-    div.style.left = `${idx * 80}px`;
+    // For cleaner look, show index instead of raw PID
+    div.innerText = idx + 1;
+    div.style.position = "absolute";
+    div.style.left = `${20 + idx * 80}px`;
+    div.style.top = "70px";
     playerDivs[pid] = div;
     playersContainer.appendChild(div);
   });
@@ -63,16 +65,16 @@ function movePotatoTo(newHolderId) {
     potato.style.transform = `translate(${startX}px, ${startY}px)`;
   }
 
-  // Target coordinates
   const x = targetRect.left - containerRect.left + targetRect.width/2 - potato.offsetWidth/2;
   const y = targetRect.top - containerRect.top + targetRect.height/2 - potato.offsetHeight/2;
 
-  // Animate
+  // Trigger transition
   requestAnimationFrame(() => {
     potato.style.transform = `translate(${x}px, ${y}px)`;
   });
 }
 
+// WebSocket messages
 ws.onmessage = e => {
   const msg = JSON.parse(e.data);
   myId = msg.yourId;
@@ -98,13 +100,13 @@ ws.onmessage = e => {
     timerText.innerText = `⏱ ${Math.ceil(msg.timeRemaining / 1000)}s`;
   }
 
-  // Fly potato
   if (msg.potatoHolder && lastHolder !== msg.potatoHolder) {
     potatoInFlight = true;
     movePotatoTo(msg.potatoHolder);
 
     setTimeout(() => {
       potatoInFlight = false;
+      lastHolder = msg.potatoHolder;
 
       if (msg.potatoHolder === myId) {
         gameText.innerText = "🔥 YOU HAVE THE POTATO!";
@@ -115,9 +117,7 @@ ws.onmessage = e => {
         gameText.innerText = "🥔 Someone else has the potato";
         throwBtn.disabled = true;
       }
-
-      lastHolder = msg.potatoHolder;
-    }, 1000);
+    }, 1000); // match CSS transition
   }
 };
 
