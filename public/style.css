@@ -1,29 +1,10 @@
-body {
-  text-align: center;
-  font-family: sans-serif;
-}
-
-#arena {
-  width: 300px;
-  height: 200px;
-  border: 2px dashed #aaa;
-  margin: 20px auto;
-  position: relative;
-}
-
-#potato {
-  position: absolute;
-  left: 120px;
-  top: 80px;
-  font-size: 48px;
-}
-
-.fly {
-  animation: fly 0.8s ease-in-out;
-}
-
-@keyframes fly {
+body { font-family: sans-serif; text-align: center; }
+#arena { width: 300px; height: 200px; margin: 20px auto; border: 2px dashed #aaa; position: relative; }
+#potato { position: absolute; left: 120px; top: 80px; font-size: 48px; pointer-events: none; }
+.fly { animation: flyArc 0.8s ease-in-out forwards; }
+@keyframes flyArc {
   0% { transform: translate(0,0) rotate(0deg); }
   50% { transform: translate(100px,-60px) rotate(180deg); }
   100% { transform: translate(0,0) rotate(360deg); }
 }
+button { font-size: 18px; padding: 10px 20px; }
