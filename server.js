@@ -9,7 +9,6 @@ const PORT = process.env.PORT || 3000;
 app.use(express.static("public"));
 
 const MIN_PLAYERS = 2;
-const HOLD_LIMIT_MS = 60_000;
 
 const lobby = {
   players: [],
@@ -17,76 +16,37 @@ const lobby = {
   potatoHolder: null
 };
 
-const players = {}; // pid -> { ws, alive, holdingSince }
+const players = {}; // pid -> { ws }
 
-function broadcast(data) {
-  lobby.players.forEach(pid => {
-    players[pid]?.ws.send(JSON.stringify(data));
-  });
-}
-
-function sendState() {
-  broadcast({
+function sendStateTo(pid) {
+  players[pid].ws.send(JSON.stringify({
     type: lobby.gameStarted ? "game" : "lobby",
+    yourId: pid,
     players: lobby.players,
     minPlayers: MIN_PLAYERS,
     potatoHolder: lobby.potatoHolder
-  });
+  }));
+}
+
+function broadcastState() {
+  lobby.players.forEach(sendStateTo);
 }
 
 function startGame() {
   lobby.gameStarted = true;
   lobby.potatoHolder =
     lobby.players[Math.floor(Math.random() * lobby.players.length)];
-  players[lobby.potatoHolder].holdingSince = Date.now();
-  sendState();
+  broadcastState();
 }
 
-setInterval(() => {
-  if (!lobby.gameStarted) return;
-  const holder = players[lobby.potatoHolder];
-  if (!holder) return;
-
-  if (Date.now() - holder.holdingSince > HOLD_LIMIT_MS) {
-    holder.alive = false;
-    lobby.players = lobby.players.filter(p => p !== lobby.potatoHolder);
-
-    if (lobby.players.length === 1) {
-      broadcast({ type: "winner", player: lobby.players[0] });
-      lobby.gameStarted = false;
-      lobby.potatoHolder = null;
-      sendState();
-      return;
-    }
-
-    lobby.potatoHolder =
-      lobby.players[Math.floor(Math.random() * lobby.players.length)];
-    players[lobby.potatoHolder].holdingSince = Date.now();
-    sendState();
-  }
-}, 1000);
-
-// --- WebSocket ---
 const wss = new WebSocketServer({ server });
 
 wss.on("connection", ws => {
   const pid = Math.random().toString(36).slice(2, 7);
-
-  players[pid] = {
-    ws,
-    alive: true,
-    holdingSince: null
-  };
-
+  players[pid] = { ws };
   lobby.players.push(pid);
 
-  // ✅ SEND PLAYER ID
-  ws.send(JSON.stringify({
-    type: "welcome",
-    playerId: pid
-  }));
-
-  sendState();
+  broadcastState();
 
   if (!lobby.gameStarted && lobby.players.length >= MIN_PLAYERS) {
     startGame();
@@ -103,17 +63,20 @@ wss.on("connection", ws => {
       const others = lobby.players.filter(p => p !== pid);
       lobby.potatoHolder =
         others[Math.floor(Math.random() * others.length)];
-      players[lobby.potatoHolder].holdingSince = Date.now();
-      sendState();
+      broadcastState();
     }
   });
 
   ws.on("close", () => {
     lobby.players = lobby.players.filter(p => p !== pid);
     delete players[pid];
-    lobby.gameStarted = false;
-    lobby.potatoHolder = null;
-    sendState();
+
+    if (lobby.players.length < MIN_PLAYERS) {
+      lobby.gameStarted = false;
+      lobby.potatoHolder = null;
+    }
+
+    broadcastState();
   });
 });
 
