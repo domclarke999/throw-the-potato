@@ -8,7 +8,7 @@ const io = new Server(server);
 
 app.use(express.static("public"));
 
-let players = [];
+let players = []; // {id, name}
 let requiredPlayers = 2;
 let potatoHolder = null;
 let timer = null;
@@ -16,13 +16,13 @@ let timer = null;
 // Send lobby updates
 function updateLobby() {
   const waiting = requiredPlayers - players.length;
-  io.emit("lobbyUpdate", waiting > 0 ? waiting : 0);
+  io.emit("lobbyUpdate", { waiting: waiting > 0 ? waiting : 0, required: requiredPlayers });
 }
 
 // Start game
 function startGame() {
-  potatoHolder = players[Math.floor(Math.random() * players.length)];
-  io.emit("gameStart", { potatoHolder });
+  potatoHolder = players[Math.floor(Math.random() * players.length)].id;
+  io.emit("gameStart", { potatoHolder, players });
   startTimer();
 }
 
@@ -30,11 +30,10 @@ function startGame() {
 function startTimer() {
   clearTimeout(timer);
   timer = setTimeout(() => {
-    console.log("Timer expired for", potatoHolder);
-    // For now, just switch potato randomly
-    const others = players.filter(p => p !== potatoHolder);
+    // Automatically switch potato if time expires
+    const others = players.filter(p => p.id !== potatoHolder);
     if (others.length > 0) {
-      potatoHolder = others[Math.floor(Math.random() * others.length)];
+      potatoHolder = others[Math.floor(Math.random() * others.length)].id;
       io.emit("potatoThrown", { to: potatoHolder });
       startTimer();
     }
@@ -42,42 +41,48 @@ function startTimer() {
 }
 
 io.on("connection", socket => {
-  console.log("Player connected", socket.id);
-  players.push(socket.id);
+  console.log("Connected:", socket.id);
 
-  // First player is host
-  if (players.length === 1) {
-    socket.emit("host");
-  }
+  // Player submits name
+  socket.on("setName", name => {
+    players.push({ id: socket.id, name });
+    console.log("Players:", players.map(p => p.name));
+    
+    // First player is host
+    if (players.length === 1) socket.emit("host");
 
-  updateLobby();
+    updateLobby();
 
-  // Handle host setting number of players
+    // Auto-start if enough players
+    if (players.length >= requiredPlayers) startGame();
+  });
+
   socket.on("setPlayerCount", count => {
     requiredPlayers = count;
     updateLobby();
   });
 
-  // Handle throw
   socket.on("throwPotato", () => {
     if (socket.id !== potatoHolder) return;
 
     clearTimeout(timer);
 
-    const others = players.filter(p => p !== socket.id);
+    const others = players.filter(p => p.id !== socket.id);
     if (others.length === 0) return;
 
-    potatoHolder = others[Math.floor(Math.random() * others.length)];
+    potatoHolder = others[Math.floor(Math.random() * others.length)].id;
     io.emit("potatoThrown", { to: potatoHolder });
     startTimer();
   });
 
-  // Check if game should start
-  if (players.length >= requiredPlayers) startGame();
-
   socket.on("disconnect", () => {
-    players = players.filter(p => p !== socket.id);
+    players = players.filter(p => p.id !== socket.id);
     updateLobby();
+    if (potatoHolder === socket.id && players.length > 0) {
+      potatoHolder = players[Math.floor(Math.random() * players.length)].id;
+      io.emit("potatoThrown", { to: potatoHolder });
+      startTimer();
+    }
   });
 });
 
