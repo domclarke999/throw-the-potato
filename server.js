@@ -14,6 +14,18 @@ let potatoHolder = null;
 let timer = null;
 let gameActive = false;
 
+// Random challenges
+const challenges = [
+  "Do 10 jumping jacks!",
+  "Sing a song for 30 seconds!",
+  "Speak in an accent until your next turn!",
+  "Do a funny dance move!",
+  "Make a silly face for 10 seconds!",
+  "Tell a joke!",
+  "Hop on one leg for 10 seconds!",
+  "Act like a chicken for 5 seconds!"
+];
+
 // Send lobby updates
 function updateLobby() {
   const waiting = requiredPlayers - players.length;
@@ -38,8 +50,20 @@ function startTimer() {
     if (!eliminated) return;
 
     gameActive = false; // Stop the game
-    io.emit("playerEliminated", { player: eliminated.id, name: eliminated.name });
-    // Stop all further throws
+
+    // Pick random challenge
+    const challenge = challenges[Math.floor(Math.random() * challenges.length)];
+
+    // Notify eliminated player
+    io.to(eliminated.id).emit("playerEliminated", { challenge });
+
+    // Notify remaining players
+    players.forEach(p => {
+      if (p.id !== eliminated.id) {
+        io.to(p.id).emit("survivedMessage", { message: "You got lucky this time, Potato Head!" });
+      }
+    });
+
   }, 30000); // 30s per throw
 }
 
