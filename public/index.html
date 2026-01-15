@@ -1,8 +1,26 @@
 <!DOCTYPE html>
 <html>
+<head>
+  <title>Throw the Potato</title>
+  <style>
+    body { font-family: Arial; text-align: center; }
+    #game { display: none; }
+    button { padding: 10px 20px; font-size: 18px; }
+  </style>
+</head>
 <body>
-  <h1>Throw the Potato</h1>
-  <h2 id="status">Loading...</h2>
-  <script src="/client.js"></script>
+
+<h1>🥔 Throw the Potato</h1>
+
+<div id="lobby">
+  <h2 id="lobbyText">Waiting...</h2>
+</div>
+
+<div id="game">
+  <h2 id="gameText"></h2>
+  <button id="throwBtn">Throw Potato</button>
+</div>
+
+<script src="client.js"></script>
 </body>
 </html>
