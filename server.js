@@ -1,122 +1,96 @@
 import express from "express";
 import http from "http";
-import { WebSocketServer } from "ws";
+import { Server } from "socket.io";
 
 const app = express();
 const server = http.createServer(app);
-const PORT = process.env.PORT || 3000;
+const io = new Server(server);
 
 app.use(express.static("public"));
 
-const MIN_PLAYERS = 2;
-const MAX_HOLD_TIME = 5 * 60 * 1000; // 5 minutes
+let players = [];
+let requiredPlayers = null;
+let potatoHolder = null;
+let gameStarted = false;
 
-let lobby = {
-  players: [],
-  gameStarted: false,
-  potatoHolder: null,
-  holdStart: null
-};
+const challenges = [
+  "Do 10 pushups",
+  "Sing a song",
+  "Drink a glass of water",
+  "Dance for 10 seconds",
+  "Say the alphabet backwards"
+];
 
-const sockets = {}; // pid -> ws
+io.on("connection", (socket) => {
+  console.log("Player joined", socket.id);
 
-function broadcast() {
-  lobby.players.forEach(pid => {
-    sockets[pid]?.send(JSON.stringify({
-      type: lobby.gameStarted ? "game" : "lobby",
-      yourId: pid,
-      players: lobby.players,
-      minPlayers: MIN_PLAYERS,
-      potatoHolder: lobby.potatoHolder,
-      timeRemaining: lobby.holdStart
-        ? MAX_HOLD_TIME - (Date.now() - lobby.holdStart)
-        : null
-    }));
-  });
-}
+  players.push(socket.id);
+  io.emit("playerCount", players.length);
 
-function startGame() {
-  lobby.gameStarted = true;
-  lobby.potatoHolder =
-    lobby.players[Math.floor(Math.random() * lobby.players.length)];
-  lobby.holdStart = Date.now();
-  broadcast();
-}
-
-function resetGame() {
-  lobby.gameStarted = false;
-  lobby.potatoHolder = null;
-  lobby.holdStart = null;
-  broadcast();
-}
-
-setInterval(() => {
-  if (!lobby.gameStarted) return;
-  if (Date.now() - lobby.holdStart > MAX_HOLD_TIME) {
-    const eliminated = lobby.potatoHolder;
-    lobby.players = lobby.players.filter(p => p !== eliminated);
-    delete sockets[eliminated];
-
-    if (lobby.players.length === 1) {
-      sockets[lobby.players[0]]?.send(JSON.stringify({
-        type: "winner"
-      }));
-      resetGame();
-      return;
-    }
-
-    lobby.potatoHolder =
-      lobby.players[Math.floor(Math.random() * lobby.players.length)];
-    lobby.holdStart = Date.now();
-    broadcast();
-  }
-}, 1000);
-
-const wss = new WebSocketServer({ server });
-
-wss.on("connection", ws => {
-  const pid = Math.random().toString(36).slice(2, 7);
-  sockets[pid] = ws;
-  lobby.players.push(pid);
-
-  broadcast();
-
-  if (!lobby.gameStarted && lobby.players.length >= MIN_PLAYERS) {
-    startGame();
+  // First player chooses game size
+  if (players.length === 1) {
+    socket.emit("host");
   }
 
-  ws.on("message", msg => {
-    const data = JSON.parse(msg);
-
-    if (
-      data.type === "throw" &&
-      lobby.gameStarted &&
-      lobby.potatoHolder === pid
-    ) {
-      const targets = lobby.players.filter(p => p !== pid);
-      lobby.potatoHolder =
-        targets[Math.floor(Math.random() * targets.length)];
-      lobby.holdStart = Date.now();
-      broadcast();
+  socket.on("setPlayerCount", (count) => {
+    if (requiredPlayers === null) {
+      requiredPlayers = count;
+      io.emit("lobbyUpdate", requiredPlayers);
+      tryStartGame();
     }
   });
 
-  ws.on("close", () => {
-    lobby.players = lobby.players.filter(p => p !== pid);
-    delete sockets[pid];
+  socket.on("throwPotato", () => {
+    if (socket.id !== potatoHolder) return;
 
-    if (lobby.players.length < MIN_PLAYERS) {
+    const others = players.filter(p => p !== potatoHolder);
+    if (others.length === 0) return;
+
+    const next = others[Math.floor(Math.random() * others.length)];
+    potatoHolder = next;
+
+    io.emit("potatoThrown", {
+      from: socket.id,
+      to: next
+    });
+  });
+
+  socket.on("disconnect", () => {
+    console.log("Player left", socket.id);
+
+    players = players.filter(p => p !== socket.id);
+
+    if (socket.id === potatoHolder && players.length > 0) {
+      potatoHolder = players[0];
+      io.emit("potatoAssigned", potatoHolder);
+    }
+
+    if (players.length === 0) {
       resetGame();
-    } else if (lobby.potatoHolder === pid) {
-      lobby.potatoHolder =
-        lobby.players[Math.floor(Math.random() * lobby.players.length)];
-      lobby.holdStart = Date.now();
     }
 
-    broadcast();
+    io.emit("playerCount", players.length);
   });
+
+  function tryStartGame() {
+    if (!gameStarted && requiredPlayers && players.length === requiredPlayers) {
+      gameStarted = true;
+      potatoHolder = players[Math.floor(Math.random() * players.length)];
+
+      io.emit("gameStart", {
+        potatoHolder
+      });
+    }
+  }
+
+  function resetGame() {
+    players = [];
+    requiredPlayers = null;
+    potatoHolder = null;
+    gameStarted = false;
+  }
 });
 
-server.listen(PORT, () =>
-  console.log("Server running on", PORT)
-);
+server.listen(3000, () => {
+  console.log("Server running on http://localhost:3000");
+});
