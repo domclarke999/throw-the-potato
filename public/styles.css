@@ -3,13 +3,29 @@ body {
   font-family: sans-serif;
 }
 
-#potato {
-  font-size: 80px;
-  display: inline-block;
-  margin: 20px;
-  transition: transform 0.6s;
+#playersContainer {
+  position: relative;
+  width: 100%;
+  height: 200px;
+  margin: 20px auto;
 }
 
-.throw {
-  transform: translateX(200px) rotate(720deg);
+.player {
+  width: 60px;
+  height: 60px;
+  background: #FFD700;
+  border-radius: 50%;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 30px;
+  margin: 0 10px;
+  position: relative;
+}
+
+#potato {
+  font-size: 50px;
+  position: absolute;
+  transition: all 1s ease-in-out;
+  pointer-events: none;
 }
