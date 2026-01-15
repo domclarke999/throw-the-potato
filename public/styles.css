@@ -4,7 +4,7 @@ body {
 }
 
 #playersContainer {
-  position: relative;   /* container for absolute player & potato positioning */
+  position: relative;
   width: 100%;
   height: 200px;
   margin: 20px auto;
@@ -28,4 +28,10 @@ body {
   position: absolute;
   transition: transform 1s ease-in-out;
   pointer-events: none;
+}
+
+#throwBtn {
+  margin-top: 20px;
+  font-size: 18px;
+  padding: 10px 20px;
 }
