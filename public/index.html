@@ -1,20 +1,21 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
   <meta charset="UTF-8" />
   <title>Throw the Potato</title>
-  <link rel="stylesheet" href="style.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
 <h1>🥔 Throw the Potato</h1>
 
 <div id="lobby">
-  <p id="status">Waiting for players...</p>
+  <p id="status">Waiting for players…</p>
 
   <div id="hostControls" hidden>
     <label>
-      Number of players:
+      Players:
       <select id="playerSelect">
         <option value="2">2</option>
         <option value="3">3</option>
@@ -28,8 +29,10 @@
 <div id="game" hidden>
   <div id="arena">
     <div id="potato">🥔</div>
+    <div id="players"></div>
   </div>
 
+  <p id="timer">Time: 30</p>
   <button id="throwBtn" disabled>Throw Potato</button>
 </div>
 
@@ -37,6 +40,5 @@
 
 <script src="/socket.io/socket.io.js"></script>
 <script src="client.js"></script>
-
 </body>
 </html>
