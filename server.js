@@ -12,6 +12,7 @@ let players = []; // {id, name}
 let requiredPlayers = 2;
 let potatoHolder = null;
 let timer = null;
+let gameActive = false;
 
 // Send lobby updates
 function updateLobby() {
@@ -21,6 +22,8 @@ function updateLobby() {
 
 // Start game
 function startGame() {
+  if (players.length < requiredPlayers) return;
+  gameActive = true;
   potatoHolder = players[Math.floor(Math.random() * players.length)].id;
   io.emit("gameStart", { potatoHolder, players });
   startTimer();
@@ -30,14 +33,14 @@ function startGame() {
 function startTimer() {
   clearTimeout(timer);
   timer = setTimeout(() => {
-    // Automatically switch potato if time expires
-    const others = players.filter(p => p.id !== potatoHolder);
-    if (others.length > 0) {
-      potatoHolder = others[Math.floor(Math.random() * others.length)].id;
-      io.emit("potatoThrown", { to: potatoHolder });
-      startTimer();
-    }
-  }, 30000);
+    // First player eliminated
+    const eliminated = players.find(p => p.id === potatoHolder);
+    if (!eliminated) return;
+
+    gameActive = false; // Stop the game
+    io.emit("playerEliminated", { player: eliminated.id, name: eliminated.name });
+    // Stop all further throws
+  }, 30000); // 30s per throw
 }
 
 io.on("connection", socket => {
@@ -46,7 +49,6 @@ io.on("connection", socket => {
   // Player submits name
   socket.on("setName", name => {
     players.push({ id: socket.id, name });
-    console.log("Players:", players.map(p => p.name));
     
     // First player is host
     if (players.length === 1) socket.emit("host");
@@ -54,7 +56,7 @@ io.on("connection", socket => {
     updateLobby();
 
     // Auto-start if enough players
-    if (players.length >= requiredPlayers) startGame();
+    if (!gameActive && players.length >= requiredPlayers) startGame();
   });
 
   socket.on("setPlayerCount", count => {
@@ -63,6 +65,7 @@ io.on("connection", socket => {
   });
 
   socket.on("throwPotato", () => {
+    if (!gameActive) return;
     if (socket.id !== potatoHolder) return;
 
     clearTimeout(timer);
@@ -78,7 +81,7 @@ io.on("connection", socket => {
   socket.on("disconnect", () => {
     players = players.filter(p => p.id !== socket.id);
     updateLobby();
-    if (potatoHolder === socket.id && players.length > 0) {
+    if (potatoHolder === socket.id && gameActive && players.length > 0) {
       potatoHolder = players[Math.floor(Math.random() * players.length)].id;
       io.emit("potatoThrown", { to: potatoHolder });
       startTimer();
