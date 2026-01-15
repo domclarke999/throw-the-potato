@@ -10,33 +10,29 @@ app.use(express.static("public"));
 
 let players = [];
 let requiredPlayers = null;
-let potatoHolder = null;
 let gameStarted = false;
-
-const challenges = [
-  "Do 10 pushups",
-  "Sing a song",
-  "Drink a glass of water",
-  "Dance for 10 seconds",
-  "Say the alphabet backwards"
-];
+let potatoHolder = null;
 
 io.on("connection", (socket) => {
-  console.log("Player joined", socket.id);
+  console.log("Player joined:", socket.id);
 
   players.push(socket.id);
   io.emit("playerCount", players.length);
 
-  // First player chooses game size
+  // First player becomes host
   if (players.length === 1) {
     socket.emit("host");
   }
 
+  // 🔑 CRITICAL: try starting game on every join
+  tryStartGame();
+
   socket.on("setPlayerCount", (count) => {
     if (requiredPlayers === null) {
       requiredPlayers = count;
+      console.log("Required players set to", count);
       io.emit("lobbyUpdate", requiredPlayers);
-      tryStartGame();
+      tryStartGame(); // 🔑 ALSO try here
     }
   });
 
@@ -49,14 +45,11 @@ io.on("connection", (socket) => {
     const next = others[Math.floor(Math.random() * others.length)];
     potatoHolder = next;
 
-    io.emit("potatoThrown", {
-      from: socket.id,
-      to: next
-    });
+    io.emit("potatoThrown", { from: socket.id, to: next });
   });
 
   socket.on("disconnect", () => {
-    console.log("Player left", socket.id);
+    console.log("Player left:", socket.id);
 
     players = players.filter(p => p !== socket.id);
 
@@ -65,21 +58,22 @@ io.on("connection", (socket) => {
       io.emit("potatoAssigned", potatoHolder);
     }
 
-    if (players.length === 0) {
-      resetGame();
-    }
+    if (players.length === 0) resetGame();
 
     io.emit("playerCount", players.length);
   });
 
   function tryStartGame() {
-    if (!gameStarted && requiredPlayers && players.length === requiredPlayers) {
+    if (
+      !gameStarted &&
+      requiredPlayers !== null &&
+      players.length === requiredPlayers
+    ) {
       gameStarted = true;
       potatoHolder = players[Math.floor(Math.random() * players.length)];
 
-      io.emit("gameStart", {
-        potatoHolder
-      });
+      console.log("GAME STARTED");
+      io.emit("gameStart", { potatoHolder });
     }
   }
 
