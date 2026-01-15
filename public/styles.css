@@ -1,37 +1,29 @@
 body {
-  font-family: Arial, sans-serif;
   text-align: center;
+  font-family: sans-serif;
 }
 
 #arena {
-  position: relative;
   width: 300px;
   height: 200px;
-  margin: 20px auto;
   border: 2px dashed #aaa;
-  overflow: hidden;
+  margin: 20px auto;
+  position: relative;
 }
 
 #potato {
   position: absolute;
   left: 120px;
-  top: 120px;
+  top: 80px;
   font-size: 48px;
-  pointer-events: none;
 }
 
 .fly {
-  animation: flyArc 1s linear forwards;
+  animation: fly 0.8s ease-in-out;
 }
 
-@keyframes flyArc {
+@keyframes fly {
   0% { transform: translate(0,0) rotate(0deg); }
-  30% { transform: translate(60px,-80px) rotate(120deg); }
-  60% { transform: translate(120px,-40px) rotate(240deg); }
+  50% { transform: translate(100px,-60px) rotate(180deg); }
   100% { transform: translate(0,0) rotate(360deg); }
-}
-
-button {
-  font-size: 18px;
-  padding: 10px 20px;
 }
