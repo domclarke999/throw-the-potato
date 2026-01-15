@@ -3,41 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <title>Throw the Potato</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 
 <h1>🥔 Throw the Potato</h1>
 
-<div id="lobby">
-  <p id="status">Waiting for players…</p>
-
-  <div id="hostControls" hidden>
-    <label>
-      Players:
-      <select id="playerSelect">
-        <option value="2">2</option>
-        <option value="3">3</option>
-        <option value="4">4</option>
-      </select>
-    </label>
-    <button id="startBtn">Set Game</button>
-  </div>
+<div id="arena">
+  <div id="potato">🥔</div>
 </div>
 
-<div id="game" hidden>
-  <div id="arena">
-    <div id="potato">🥔</div>
-  </div>
-
-  <p id="timer">Time: 30</p>
-  <button id="throwBtn" disabled>Throw Potato</button>
-</div>
-
-<audio id="incomingSound" src="incoming.wav" preload="auto"></audio>
+<button id="throwBtn" disabled>Throw Potato</button>
 
 <script src="/socket.io/socket.io.js"></script>
-<script src="client.js"></script>
+<script src="/client.js"></script>
 </body>
 </html>
