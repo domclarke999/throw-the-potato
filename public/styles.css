@@ -1,5 +1,10 @@
+body {
+  text-align: center;
+  font-family: sans-serif;
+}
+
 #playersContainer {
-  position: relative;
+  position: relative;   /* container for absolute player & potato positioning */
   width: 100%;
   height: 200px;
   margin: 20px auto;
@@ -11,10 +16,10 @@
   height: 60px;
   background: #FFD700;
   border-radius: 50%;
+  position: absolute;
   display: flex;
   justify-content: center;
   align-items: center;
-  position: absolute;
   font-size: 24px;
 }
 
