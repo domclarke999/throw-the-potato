@@ -55,14 +55,20 @@ wss.on("connection", ws => {
   ws.on("message", msg => {
     const data = JSON.parse(msg);
 
+    // ✅ SAFE POTATO TRANSFER
     if (
       data.type === "throw" &&
       lobby.gameStarted &&
       lobby.potatoHolder === pid
     ) {
-      const others = lobby.players.filter(p => p !== pid);
+      const candidates = lobby.players.filter(p => p !== pid);
+
+      // Safety guard (should never fail if MIN_PLAYERS >= 2)
+      if (candidates.length === 0) return;
+
       lobby.potatoHolder =
-        others[Math.floor(Math.random() * others.length)];
+        candidates[Math.floor(Math.random() * candidates.length)];
+
       broadcastState();
     }
   });
@@ -70,6 +76,17 @@ wss.on("connection", ws => {
   ws.on("close", () => {
     lobby.players = lobby.players.filter(p => p !== pid);
     delete players[pid];
+
+    if (!lobby.gameStarted) {
+      broadcastState();
+      return;
+    }
+
+    // If holder disconnected, reassign
+    if (lobby.potatoHolder === pid && lobby.players.length > 0) {
+      lobby.potatoHolder =
+        lobby.players[Math.floor(Math.random() * lobby.players.length)];
+    }
 
     if (lobby.players.length < MIN_PLAYERS) {
       lobby.gameStarted = false;
