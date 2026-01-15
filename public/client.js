@@ -1,34 +1,31 @@
-const ws = new WebSocket(`ws://${location.host}`);
+console.log("client.js loaded");
 
-let playerId = null;
+const status = document.getElementById("status");
 
-const lobbyDiv = document.getElementById("lobby");
-const gameDiv = document.getElementById("game");
-const lobbyStatus = document.getElementById("lobbyStatus");
-const gameStatus = document.getElementById("gameStatus");
+// IMPORTANT: protocol-safe WebSocket
+const protocol = location.protocol === "https:" ? "wss" : "ws";
+const ws = new WebSocket(`${protocol}://${location.host}`);
+
+ws.onopen = () => {
+  console.log("WebSocket OPEN");
+  status.innerText = "WebSocket connected";
+};
+
+ws.onerror = err => {
+  console.error("WebSocket error", err);
+  status.innerText = "WebSocket ERROR";
+};
 
 ws.onmessage = e => {
+  console.log("Message from server:", e.data);
   const msg = JSON.parse(e.data);
 
-  if (msg.type === "joined") {
-    playerId = msg.playerId;
-  }
-
   if (msg.type === "lobby") {
-    lobbyDiv.style.display = "block";
-    gameDiv.style.display = "none";
-
-    lobbyStatus.innerText =
-      `Waiting for players: ${msg.players.length}/${msg.minPlayers}`;
+    status.innerText =
+      `WAITING: ${msg.players.length}/${msg.minPlayers}`;
   }
 
   if (msg.type === "gameStarted") {
-    lobbyDiv.style.display = "none";
-    gameDiv.style.display = "block";
-
-    gameStatus.innerText =
-      msg.potatoHolder === playerId
-        ? "🔥 You have the potato!"
-        : "🥔 Someone else has the potato!";
+    status.innerText = "GAME STARTED";
   }
 };
