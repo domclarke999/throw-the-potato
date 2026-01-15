@@ -1,0 +1,19 @@
+body {
+  text-align: center;
+  font-family: sans-serif;
+}
+
+#potato {
+  font-size: 80px;
+  display: inline-block;
+  margin: 20px;
+}
+
+.throw {
+  animation: throw 0.6s ease-out;
+}
+
+@keyframes throw {
+  0% { transform: translateX(0) rotate(0); }
+  100% { transform: translateX(300px) rotate(720deg); opacity: 0; }
+}
