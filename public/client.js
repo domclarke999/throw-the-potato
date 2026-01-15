@@ -18,7 +18,11 @@ const audio = new Audio("incoming.wav");
 // Unlock audio for iOS Safari
 function unlockAudio() {
   if (!audioUnlocked) {
-    audio.play().then(() => { audio.pause(); audio.currentTime = 0; audioUnlocked = true; }).catch(()=>{});
+    audio.play().then(() => { 
+      audio.pause(); 
+      audio.currentTime = 0; 
+      audioUnlocked = true; 
+    }).catch(()=>{});
   }
 }
 
@@ -30,7 +34,7 @@ const ws = new WebSocket(`${protocol}://${location.host}`);
 
 let playerDivs = {};
 
-// Vibration helper
+// vibration helper
 function vibrate() { navigator.vibrate?.([200,100,200]); }
 
 // Update players as circles
@@ -41,14 +45,31 @@ function updatePlayers(players) {
   players.forEach((pid, idx) => {
     const div = document.createElement("div");
     div.classList.add("player");
-    div.style.left = `${spacing * (idx + 1) - 30}px`; // center
+    // Optionally show index or emoji
+    div.innerText = "🙂";
+    div.style.position = "absolute";
+    div.style.left = `${spacing * (idx + 1) - 30}px`; // center circle
     div.style.top = `70px`;
     playerDivs[pid] = div;
     playersContainer.appendChild(div);
   });
 }
 
-// Animate potato
+// Initialize potato at current holder
+function initPotatoPosition(holderId) {
+  const target = playerDivs[holderId];
+  if (!target) return;
+
+  const containerRect = playersContainer.getBoundingClientRect();
+  const targetRect = target.getBoundingClientRect();
+
+  const x = targetRect.left - containerRect.left + targetRect.width/2 - potato.offsetWidth/2;
+  const y = targetRect.top - containerRect.top + targetRect.height/2 - potato.offsetHeight/2;
+
+  potato.style.transform = `translate(${x}px, ${y}px)`;
+}
+
+// Animate potato fly
 function movePotatoTo(newHolderId) {
   const target = playerDivs[newHolderId];
   if (!target) return;
@@ -56,7 +77,7 @@ function movePotatoTo(newHolderId) {
   const containerRect = playersContainer.getBoundingClientRect();
   const targetRect = target.getBoundingClientRect();
 
-  // Start at last holder if exists
+  // start from last holder if exists
   if (lastHolder) {
     const lastRect = playerDivs[lastHolder].getBoundingClientRect();
     const startX = lastRect.left - containerRect.left + lastRect.width/2 - potato.offsetWidth/2;
@@ -67,8 +88,11 @@ function movePotatoTo(newHolderId) {
   const x = targetRect.left - containerRect.left + targetRect.width/2 - potato.offsetWidth/2;
   const y = targetRect.top - containerRect.top + targetRect.height/2 - potato.offsetHeight/2;
 
+  // Double requestAnimationFrame ensures animation triggers
   requestAnimationFrame(() => {
-    potato.style.transform = `translate(${x}px, ${y}px)`;
+    requestAnimationFrame(() => {
+      potato.style.transform = `translate(${x}px, ${y}px)`;
+    });
   });
 }
 
@@ -76,10 +100,10 @@ function movePotatoTo(newHolderId) {
 function startCountdown(duration) {
   clearInterval(countdownInterval);
   let remaining = duration;
-  timerText.innerText = remaining + "s";
+  timerText.innerText = `${remaining}s`;
   countdownInterval = setInterval(() => {
     remaining--;
-    timerText.innerText = remaining + "s";
+    timerText.innerText = `${remaining}s`;
     if (remaining <= 0) clearInterval(countdownInterval);
   }, 1000);
 }
@@ -126,7 +150,7 @@ ws.onmessage = e => {
         gameText.innerText = "🥔 Someone else has the potato";
         throwBtn.disabled = true;
       }
-    }, 1000); // match CSS transition
+    }, 1000); // match CSS transition duration
   }
 };
 
