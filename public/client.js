@@ -11,6 +11,7 @@ let myId = null;
 let lastHolder = null;
 let potatoInFlight = false;
 let audioUnlocked = false;
+let countdownInterval = null;
 
 const audio = new Audio("incoming.wav");
 
@@ -29,27 +30,25 @@ const ws = new WebSocket(`${protocol}://${location.host}`);
 
 let playerDivs = {};
 
-// vibration helper
+// Vibration helper
 function vibrate() { navigator.vibrate?.([200,100,200]); }
 
-// Update player circles
+// Update players as circles
 function updatePlayers(players) {
   playersContainer.innerHTML = "";
   playerDivs = {};
+  const spacing = playersContainer.clientWidth / (players.length + 1);
   players.forEach((pid, idx) => {
     const div = document.createElement("div");
     div.classList.add("player");
-    // For cleaner look, show index instead of raw PID
-    div.innerText = idx + 1;
-    div.style.position = "absolute";
-    div.style.left = `${20 + idx * 80}px`;
-    div.style.top = "70px";
+    div.style.left = `${spacing * (idx + 1) - 30}px`; // center
+    div.style.top = `70px`;
     playerDivs[pid] = div;
     playersContainer.appendChild(div);
   });
 }
 
-// Animate potato fly
+// Animate potato
 function movePotatoTo(newHolderId) {
   const target = playerDivs[newHolderId];
   if (!target) return;
@@ -57,7 +56,7 @@ function movePotatoTo(newHolderId) {
   const containerRect = playersContainer.getBoundingClientRect();
   const targetRect = target.getBoundingClientRect();
 
-  // Start at last holder
+  // Start at last holder if exists
   if (lastHolder) {
     const lastRect = playerDivs[lastHolder].getBoundingClientRect();
     const startX = lastRect.left - containerRect.left + lastRect.width/2 - potato.offsetWidth/2;
@@ -68,10 +67,21 @@ function movePotatoTo(newHolderId) {
   const x = targetRect.left - containerRect.left + targetRect.width/2 - potato.offsetWidth/2;
   const y = targetRect.top - containerRect.top + targetRect.height/2 - potato.offsetHeight/2;
 
-  // Trigger transition
   requestAnimationFrame(() => {
     potato.style.transform = `translate(${x}px, ${y}px)`;
   });
+}
+
+// Start countdown timer
+function startCountdown(duration) {
+  clearInterval(countdownInterval);
+  let remaining = duration;
+  timerText.innerText = remaining + "s";
+  countdownInterval = setInterval(() => {
+    remaining--;
+    timerText.innerText = remaining + "s";
+    if (remaining <= 0) clearInterval(countdownInterval);
+  }, 1000);
 }
 
 // WebSocket messages
@@ -96,10 +106,9 @@ ws.onmessage = e => {
 
   updatePlayers(msg.players);
 
-  if (msg.timeRemaining != null) {
-    timerText.innerText = `⏱ ${Math.ceil(msg.timeRemaining / 1000)}s`;
-  }
+  if (msg.timeRemaining != null) startCountdown(Math.ceil(msg.timeRemaining / 1000));
 
+  // Animate potato fly
   if (msg.potatoHolder && lastHolder !== msg.potatoHolder) {
     potatoInFlight = true;
     movePotatoTo(msg.potatoHolder);
