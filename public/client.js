@@ -34,10 +34,10 @@ const ws = new WebSocket(`${protocol}://${location.host}`);
 
 let playerDivs = {};
 
-// Vibration helper
+// vibration helper
 function vibrate() { navigator.vibrate?.([200,100,200]); }
 
-// Render players as circles
+// Update player circles
 function updatePlayers(players) {
   playersContainer.innerHTML = "";
   playerDivs = {};
@@ -68,7 +68,7 @@ function initPotatoPosition(holderId) {
   potato.style.transform = `translate(${x}px, ${y}px)`;
 }
 
-// Animate potato flying to a new holder
+// Animate potato fly
 function movePotatoTo(newHolderId) {
   const target = playerDivs[newHolderId];
   if (!target) return;
@@ -76,7 +76,7 @@ function movePotatoTo(newHolderId) {
   const containerRect = playersContainer.getBoundingClientRect();
   const targetRect = target.getBoundingClientRect();
 
-  // Start from last holder if exists
+  // start from last holder if exists
   if (lastHolder) {
     const lastRect = playerDivs[lastHolder].getBoundingClientRect();
     const startX = lastRect.left - containerRect.left + lastRect.width/2 - potato.offsetWidth/2;
