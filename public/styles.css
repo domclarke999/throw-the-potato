@@ -15,17 +15,17 @@ body {
   height: 60px;
   background: #FFD700;
   border-radius: 50%;
-  display: inline-flex;
+  display: flex;
   justify-content: center;
   align-items: center;
   font-size: 30px;
-  margin: 0 10px;
-  position: relative;
+  position: absolute;
+  top: 70px;
 }
 
 #potato {
   font-size: 50px;
-  position: absolute; /* important for fly animation */
-  transition: transform 1s ease-in-out; /* smooth movement */
+  position: absolute;
+  transition: transform 1s ease-in-out;
   pointer-events: none;
 }
