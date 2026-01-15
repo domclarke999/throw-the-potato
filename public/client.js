@@ -14,7 +14,7 @@ let audioUnlocked = false;
 
 const audio = new Audio("incoming.wav");
 
-// iOS Safari audio unlock
+// Unlock audio for iOS Safari
 function unlockAudio() {
   if (!audioUnlocked) {
     audio.play().then(() => {
@@ -45,12 +45,15 @@ function updatePlayers(players) {
     div.classList.add("player");
     div.innerText = pid;
     div.dataset.pid = pid;
+    div.style.position = "absolute";
     div.style.left = `${idx * 80}px`;
+    div.style.top = "70px";
     playerDivs[pid] = div;
     playersContainer.appendChild(div);
   });
 }
 
+// Animate potato to target player
 function movePotatoTo(pid) {
   const target = playerDivs[pid];
   if (!target) return;
@@ -58,8 +61,8 @@ function movePotatoTo(pid) {
   const containerRect = playersContainer.getBoundingClientRect();
   const targetRect = target.getBoundingClientRect();
 
-  const x = targetRect.left - containerRect.left + targetRect.width/2 - potato.offsetWidth/2;
-  const y = targetRect.top - containerRect.top + targetRect.height/2 - potato.offsetHeight/2;
+  const x = targetRect.left - containerRect.left + targetRect.width / 2 - potato.offsetWidth / 2;
+  const y = targetRect.top - containerRect.top + targetRect.height / 2 - potato.offsetHeight / 2;
 
   potato.style.transform = `translate(${x}px, ${y}px)`;
 }
@@ -91,22 +94,27 @@ ws.onmessage = e => {
 
   // Animate potato flying to new holder
   if (msg.potatoHolder && lastHolder !== msg.potatoHolder) {
+    potatoInFlight = true;
     movePotatoTo(msg.potatoHolder);
 
-    if (msg.potatoHolder === myId) {
-      if (audioUnlocked) audio.play().catch(() => {});
-      vibrate();
+    // Wait for animation to finish (~1s)
+    setTimeout(() => {
       potatoInFlight = false;
-      throwBtn.disabled = false;
-    } else {
-      potatoInFlight = true;
-      throwBtn.disabled = true;
-    }
+      if (msg.potatoHolder === myId) {
+        gameText.innerText = "🔥 YOU HAVE THE POTATO!";
+        throwBtn.disabled = false;
+        if (audioUnlocked) audio.play().catch(() => {});
+        vibrate();
+      } else {
+        gameText.innerText = "🥔 Someone else has the potato";
+        throwBtn.disabled = true;
+      }
+      lastHolder = msg.potatoHolder;
+    }, 1000); // match CSS transition
   }
-
-  lastHolder = msg.potatoHolder;
 };
 
+// Throw potato
 throwBtn.onclick = () => {
   if (!potatoInFlight) {
     potatoInFlight = true;
