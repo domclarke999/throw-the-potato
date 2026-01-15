@@ -19,9 +19,19 @@ const sound = document.getElementById("incomingSound");
 
 const forfeitScreen = document.createElement("div");
 forfeitScreen.id = "forfeit";
-forfeitScreen.innerHTML = `<h2>You are eliminated!</h2><p>Forfeit challenge: Take a funny dare!</p>`;
 forfeitScreen.style.display = "none";
+forfeitScreen.innerHTML = `
+<h2>You are eliminated!</h2>
+<p id="challengeText"></p>
+`;
+
 document.body.appendChild(forfeitScreen);
+
+const survivedScreen = document.createElement("div");
+survivedScreen.id = "survived";
+survivedScreen.style.display = "none";
+survivedScreen.innerHTML = `<h2 id="surviveMsg"></h2>`;
+document.body.appendChild(survivedScreen);
 
 let myId;
 let myName;
@@ -82,15 +92,19 @@ socket.on("potatoThrown", ({ to }) => {
   }
 });
 
-// First player eliminated
-socket.on("playerEliminated", ({ player, name }) => {
-  if (player === socket.id) {
-    game.hidden = true;
-    forfeitScreen.style.display = "block";
-  } else {
-    game.hidden = true;
-    alert(`${name} was eliminated! Game over.`);
-  }
+// Eliminated player challenge
+socket.on("playerEliminated", ({ challenge }) => {
+  game.hidden = true;
+  forfeitScreen.style.display = "block";
+  document.getElementById("challengeText").textContent = challenge;
+  stopTimer();
+});
+
+// Message for surviving players
+socket.on("survivedMessage", ({ message }) => {
+  game.hidden = true;
+  survivedScreen.style.display = "block";
+  document.getElementById("surviveMsg").textContent = message;
   stopTimer();
 });
 
