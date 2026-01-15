@@ -6,40 +6,35 @@ body {
 
 #arena {
   position: relative;
-  width: 300px;
+  width: 320px;
   height: 200px;
   margin: 20px auto;
   border: 2px dashed #aaa;
 }
 
+.player {
+  position: absolute;
+  width: 50px;
+  height: 50px;
+  background: gold;
+  border-radius: 50%;
+  line-height: 50px;
+  font-size: 22px;
+}
+
 #potato {
   position: absolute;
-  font-size: 48px;
-  left: 120px;
-  top: 70px;
-  user-select: none;
+  font-size: 42px;
+  transition: transform 0.8s ease-in-out;
   pointer-events: none;
 }
 
-.fly {
-  animation: fly 0.8s ease-in-out;
-}
-
-@keyframes fly {
-  0% {
-    transform: translateX(0) rotate(0deg);
-  }
-  50% {
-    transform: translateX(120px) rotate(180deg);
-  }
-  100% {
-    transform: translateX(0) rotate(360deg);
-  }
+#timer {
+  font-size: 20px;
+  margin: 10px;
 }
 
 button {
+  font-size: 18px;
   padding: 10px 20px;
-  font-size: 16px;
 }
-
-
