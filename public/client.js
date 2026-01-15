@@ -4,7 +4,7 @@ const lobbyText = document.getElementById("lobbyText");
 const gameText = document.getElementById("gameText");
 const throwBtn = document.getElementById("throwBtn");
 
-let playerId = null;
+let myId = null;
 
 const protocol = location.protocol === "https:" ? "wss" : "ws";
 const ws = new WebSocket(`${protocol}://${location.host}`);
@@ -12,11 +12,7 @@ const ws = new WebSocket(`${protocol}://${location.host}`);
 ws.onmessage = e => {
   const msg = JSON.parse(e.data);
 
-  // ✅ STORE PLAYER ID
-  if (msg.type === "welcome") {
-    playerId = msg.playerId;
-    console.log("My playerId:", playerId);
-  }
+  myId = msg.yourId; // ✅ always correct
 
   if (msg.type === "lobby") {
     lobbyDiv.style.display = "block";
@@ -29,17 +25,13 @@ ws.onmessage = e => {
     lobbyDiv.style.display = "none";
     gameDiv.style.display = "block";
 
-    if (msg.potatoHolder === playerId) {
+    if (msg.potatoHolder === myId) {
       gameText.innerText = "🔥 YOU HAVE THE POTATO!";
       throwBtn.disabled = false;
     } else {
       gameText.innerText = "🥔 Someone else has the potato";
       throwBtn.disabled = true;
     }
-  }
-
-  if (msg.type === "winner") {
-    alert(msg.player === playerId ? "YOU WIN!" : "You lost!");
   }
 };
 
