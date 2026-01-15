@@ -18,9 +18,7 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  font-size: 30px;
-  position: absolute;
-  top: 70px;
+  font-size: 24px;
 }
 
 #potato {
