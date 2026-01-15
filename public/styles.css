@@ -1,47 +1,76 @@
-body {
-  font-family: Arial, sans-serif;
-  text-align: center;
-  background: #f4f4f4;
-}
+import express from "express";
+import http from "http";
+import { Server } from "socket.io";
 
-#arena {
-  position: relative;
-  width: 300px;
-  height: 200px;
-  margin: 20px auto;
-  border: 2px dashed #aaa;
-  overflow: hidden;
-}
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
 
-#potato {
-  position: absolute;
-  left: 120px;
-  top: 120px;
-  font-size: 48px;
-  pointer-events: none;
-}
+// 🔥 THIS FIXES YOUR MIME ERROR
+app.use(express.static("public"));
 
-/* 🔥 GUARANTEED VISIBLE ANIMATION */
-.fly {
-  animation: flyArc 0.9s ease-in-out forwards;
-}
+let players = [];
+let requiredPlayers = 2;
+let potatoHolder = null;
+let timer = null;
 
-@keyframes flyArc {
-  0% {
-    transform: translate(0, 0) rotate(0deg);
+// SOCKETS
+io.on("connection", socket => {
+  console.log("Player joined:", socket.id);
+
+  players.push(socket.id);
+
+  if (players.length === 1) {
+    socket.emit("host");
   }
-  40% {
-    transform: translate(0, -80px) rotate(180deg);
+
+  io.emit("playerCount", players.length);
+
+  socket.on("setPlayerCount", count => {
+    requiredPlayers = count;
+    io.emit("lobbyUpdate", requiredPlayers);
+  });
+
+  if (players.length === requiredPlayers) {
+    startGame();
   }
-  70% {
-    transform: translate(120px, -40px) rotate(300deg);
-  }
-  100% {
-    transform: translate(0, 0) rotate(360deg);
-  }
+
+  socket.on("throwPotato", () => {
+    if (socket.id !== potatoHolder) return;
+
+    stopTimer();
+
+    const others = players.filter(p => p !== socket.id);
+    potatoHolder = others[Math.floor(Math.random() * others.length)];
+
+    io.emit("potatoThrown", { to: potatoHolder });
+    startTimer();
+  });
+
+  socket.on("disconnect", () => {
+    players = players.filter(p => p !== socket.id);
+    io.emit("playerCount", players.length);
+  });
+});
+
+function startGame() {
+  potatoHolder = players[Math.floor(Math.random() * players.length)];
+  io.emit("gameStart", { potatoHolder });
+  startTimer();
 }
 
-button {
-  font-size: 18px;
-  padding: 10px 20px;
+function startTimer() {
+  stopTimer();
+  timer = setTimeout(() => {
+    console.log("Timer expired");
+  }, 30000);
 }
+
+function stopTimer() {
+  if (timer) clearTimeout(timer);
+}
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log("Server running on port", PORT);
+});
