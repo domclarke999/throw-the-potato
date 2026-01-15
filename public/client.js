@@ -11,8 +11,7 @@ const ws = new WebSocket(`${protocol}://${location.host}`);
 
 ws.onmessage = e => {
   const msg = JSON.parse(e.data);
-
-  myId = msg.yourId; // ✅ always correct
+  myId = msg.yourId;
 
   if (msg.type === "lobby") {
     lobbyDiv.style.display = "block";
