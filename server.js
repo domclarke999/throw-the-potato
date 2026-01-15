@@ -6,85 +6,71 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
+// 🔥 THIS FIXES YOUR MIME ERROR
 app.use(express.static("public"));
 
 let players = [];
-let requiredPlayers = null;
-let gameStarted = false;
+let requiredPlayers = 2;
 let potatoHolder = null;
+let timer = null;
 
-io.on("connection", (socket) => {
+// SOCKETS
+io.on("connection", socket => {
   console.log("Player joined:", socket.id);
 
   players.push(socket.id);
-  io.emit("playerCount", players.length);
 
-  // First player becomes host
   if (players.length === 1) {
     socket.emit("host");
   }
 
-  // 🔑 CRITICAL: try starting game on every join
-  tryStartGame();
+  io.emit("playerCount", players.length);
 
-  socket.on("setPlayerCount", (count) => {
-    if (requiredPlayers === null) {
-      requiredPlayers = count;
-      console.log("Required players set to", count);
-      io.emit("lobbyUpdate", requiredPlayers);
-      tryStartGame(); // 🔑 ALSO try here
-    }
+  socket.on("setPlayerCount", count => {
+    requiredPlayers = count;
+    io.emit("lobbyUpdate", requiredPlayers);
   });
+
+  if (players.length === requiredPlayers) {
+    startGame();
+  }
 
   socket.on("throwPotato", () => {
     if (socket.id !== potatoHolder) return;
 
-    const others = players.filter(p => p !== potatoHolder);
-    if (others.length === 0) return;
+    stopTimer();
 
-    const next = others[Math.floor(Math.random() * others.length)];
-    potatoHolder = next;
+    const others = players.filter(p => p !== socket.id);
+    potatoHolder = others[Math.floor(Math.random() * others.length)];
 
-    io.emit("potatoThrown", { from: socket.id, to: next });
+    io.emit("potatoThrown", { to: potatoHolder });
+    startTimer();
   });
 
   socket.on("disconnect", () => {
-    console.log("Player left:", socket.id);
-
     players = players.filter(p => p !== socket.id);
-
-    if (socket.id === potatoHolder && players.length > 0) {
-      potatoHolder = players[0];
-      io.emit("potatoAssigned", potatoHolder);
-    }
-
-    if (players.length === 0) resetGame();
-
     io.emit("playerCount", players.length);
   });
-
-  function tryStartGame() {
-    if (
-      !gameStarted &&
-      requiredPlayers !== null &&
-      players.length === requiredPlayers
-    ) {
-      gameStarted = true;
-      potatoHolder = players[Math.floor(Math.random() * players.length)];
-
-      console.log("GAME STARTED");
-      io.emit("gameStart", { potatoHolder });
-    }
-  }
-
-  function resetGame() {
-    players = [];
-    requiredPlayers = null;
-    potatoHolder = null;
-    gameStarted = false;
-  }
 });
 
-server.listen(3000, () => {
-  console.log("Server running on http://localhost:3000");
+function startGame() {
+  potatoHolder = players[Math.floor(Math.random() * players.length)];
+  io.emit("gameStart", { potatoHolder });
+  startTimer();
+}
+
+function startTimer() {
+  stopTimer();
+  timer = setTimeout(() => {
+    console.log("Timer expired");
+  }, 30000);
+}
+
+function stopTimer() {
+  if (timer) clearTimeout(timer);
+}
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log("Server running on port", PORT);
 });
