@@ -20,13 +20,17 @@ const timerText = document.getElementById("timer");
 const playersContainer = document.getElementById("players");
 const potato = document.getElementById("potato");
 
+const scoreboardEl = document.getElementById("scoreboard");
+const incomingSound = document.getElementById("incomingSound");
+
 /* ---------------- STATE ---------------- */
 let myId = null;
 let isHost = false;
 let players = [];
 let potatoHolder = null;
+let maxHoldTime = 60; // seconds
 let holdTimer = null;
-let holdSeconds = 0;
+let countdown = 0;
 
 /* ---------------- HELPERS ---------------- */
 function show(screen) {
@@ -36,17 +40,27 @@ function show(screen) {
   screen.style.display = "block";
 }
 
-function startTimer() {
+function startCountdown() {
   clearInterval(holdTimer);
-  holdSeconds = 0;
-  timerText.textContent = "0s";
+  countdown = maxHoldTime;
+  timerText.textContent = countdown + "s";
   holdTimer = setInterval(() => {
-    holdSeconds++;
-    timerText.textContent = holdSeconds + "s";
+    countdown--;
+    timerText.textContent = countdown + "s";
+
+    if (countdown === 30) {
+      statusText.textContent += " ⚠️ Potato burning my mitts!";
+      if (navigator.vibrate) navigator.vibrate(500);
+    }
+
+    if (countdown <= 0) {
+      clearInterval(holdTimer);
+      socket.emit("throwPotato"); // auto throw when time runs out
+    }
   }, 1000);
 }
 
-function stopTimer() {
+function stopCountdown() {
   clearInterval(holdTimer);
   timerText.textContent = "";
 }
@@ -59,37 +73,40 @@ socket.on("joined", data => {
 
 socket.on("host", () => {
   isHost = true;
-  document.getElementById("hostControls").style.display = "block"; // only host sees dropdown
+  document.getElementById("hostControls").style.display = "block";
 });
 
 socket.on("lobbyUpdate", data => {
   show(lobbyScreen);
-
-  if (data.waiting === "?") {
-    lobbyText.textContent = "Waiting for host to select player count…";
-    return;
-  }
-
-  if (data.waiting > 0) {
-    lobbyText.textContent =
+  if (data.waiting === "?") lobbyText.textContent = "Waiting for host to select player count…";
+  else if (data.waiting > 0) lobbyText.textContent =
       `Waiting for ${data.waiting} more player(s) (of ${data.required})`;
-  } else {
-    lobbyText.textContent = "Starting game…";
-  }
+  else lobbyText.textContent = "Starting game…";
 });
 
 socket.on("gameStart", data => {
   show(gameScreen);
   players = data.players;
   potatoHolder = data.potatoHolder;
+  maxHoldTime = data.maxHoldTime || 60;
   renderPlayers();
   updatePotatoState();
+  updateScoreboard(data.scores || {});
 });
 
 socket.on("potatoThrown", data => {
-  animatePotato(potatoHolder, data.to);
   potatoHolder = data.to;
+  animatePotato(data.from, data.to);
   updatePotatoState();
+  // Play sound and vibrate if it is your turn
+  if (potatoHolder === myId) {
+    incomingSound.play();
+    if (navigator.vibrate) navigator.vibrate(500);
+  }
+});
+
+socket.on("scoreboard", scores => {
+  updateScoreboard(scores);
 });
 
 /* ---------------- UI ACTIONS ---------------- */
@@ -104,7 +121,7 @@ joinLobbyBtn.onclick = () => {
   if (isHost) {
     const count = Number(playerCountSelect.value);
     socket.emit("setPlayerCount", count);
-    playerCountSelect.disabled = true; // disable host selector after sending
+    playerCountSelect.disabled = true;
   }
   socket.emit("joinLobby");
 };
@@ -112,7 +129,7 @@ joinLobbyBtn.onclick = () => {
 throwBtn.onclick = () => {
   socket.emit("throwPotato");
   throwBtn.disabled = true;
-  stopTimer();
+  stopCountdown();
 };
 
 /* ---------------- RENDER ---------------- */
@@ -139,11 +156,11 @@ function updatePotatoState() {
       : `🥔 ${holder.name} has the potato`;
 
   if (potatoHolder === myId) {
-    throwBtn.disabled = false; // enable for holder
-    startTimer();
+    throwBtn.disabled = false;
+    startCountdown();
   } else {
-    throwBtn.disabled = true; // disable for others
-    stopTimer();
+    throwBtn.disabled = true;
+    stopCountdown();
   }
 
   movePotatoTo(holder.id);
@@ -163,4 +180,14 @@ function movePotatoTo(playerId) {
 function animatePotato(fromId, toId) {
   movePotatoTo(fromId);
   setTimeout(() => movePotatoTo(toId), 50);
+}
+
+/* ---------------- SCOREBOARD ---------------- */
+function updateScoreboard(scores) {
+  scoreboardEl.innerHTML = "";
+  players.forEach(p => {
+    const li = document.createElement("li");
+    li.textContent = `${p.name}: ${scores[p.id] || 0}s`;
+    scoreboardEl.appendChild(li);
+  });
 }
