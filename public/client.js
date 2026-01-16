@@ -1,3 +1,5 @@
+console.log("client.js loaded"); // 🔥 confirms file loads
+
 const socket = io();
 
 const nameScreen = document.getElementById("nameScreen");
@@ -19,19 +21,31 @@ let myId = null;
 let players = [];
 let potatoHolder = null;
 
-/* JOINED */
-socket.on("joined", data => {
-  myId = data.yourId;
+/* CONNECTION CONFIRM */
+socket.on("connect", () => {
+  console.log("Connected to server", socket.id);
 });
 
-/* NAME ENTRY */
-nameBtn.onclick = () => {
+/* SERVER ASSIGNS ID */
+socket.on("joined", data => {
+  myId = data.yourId;
+  console.log("My ID:", myId);
+});
+
+/* ✅ CONTINUE BUTTON — NOW GUARANTEED */
+nameBtn.addEventListener("click", () => {
+  console.log("Continue clicked");
+
   const name = nameInput.value.trim();
-  if (!name) return;
+  if (!name) {
+    alert("Please enter a name");
+    return;
+  }
+
   socket.emit("setName", name);
   nameScreen.hidden = true;
   lobby.hidden = false;
-};
+});
 
 /* HOST */
 socket.on("host", () => {
@@ -39,10 +53,11 @@ socket.on("host", () => {
 });
 
 /* JOIN LOBBY */
-joinBtn.onclick = () => {
-  socket.emit("setPlayerCount", Number(playerSelect.value));
+joinBtn.addEventListener("click", () => {
+  const count = Number(playerSelect.value);
+  socket.emit("setPlayerCount", count);
   status.textContent = "Waiting for players...";
-};
+});
 
 /* LOBBY STATUS */
 socket.on("lobbyUpdate", ({ waiting, required }) => {
@@ -50,7 +65,7 @@ socket.on("lobbyUpdate", ({ waiting, required }) => {
     waiting === "?"
       ? "Waiting for host..."
       : `Waiting for ${waiting} more player(s) (of ${required})`;
-};
+});
 
 /* GAME START */
 socket.on("gameStart", data => {
@@ -61,19 +76,19 @@ socket.on("gameStart", data => {
   updateUI();
 });
 
-/* THROW POTATO */
-throwBtn.onclick = () => {
+/* THROW */
+throwBtn.addEventListener("click", () => {
   socket.emit("throwPotato");
-};
+});
 
 /* POTATO MOVED */
 socket.on("potatoThrown", ({ to }) => {
   potatoHolder = to;
   animatePotato();
   updateUI();
-};
+});
 
-/* ✅ UPDATED HOLDER TEXT */
+/* UI */
 function updateUI() {
   const holder = players.find(p => p.id === potatoHolder);
 
@@ -88,9 +103,9 @@ function updateUI() {
   throwBtn.disabled = myId !== potatoHolder;
 }
 
-/* POTATO ANIMATION */
+/* ANIMATION */
 function animatePotato() {
   potato.classList.remove("fly");
-  void potato.offsetWidth; // force reflow
+  void potato.offsetWidth;
   potato.classList.add("fly");
 }
