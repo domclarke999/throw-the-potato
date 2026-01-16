@@ -59,7 +59,7 @@ socket.on("joined", data => {
 
 socket.on("host", () => {
   isHost = true;
-  playerCountSelect.style.display = "inline-block";
+  document.getElementById("hostControls").style.display = "block"; // only host sees dropdown
 });
 
 socket.on("lobbyUpdate", data => {
@@ -104,7 +104,7 @@ joinLobbyBtn.onclick = () => {
   if (isHost) {
     const count = Number(playerCountSelect.value);
     socket.emit("setPlayerCount", count);
-    playerCountSelect.disabled = true;
+    playerCountSelect.disabled = true; // disable host selector after sending
   }
   socket.emit("joinLobby");
 };
@@ -134,10 +134,17 @@ function updatePotatoState() {
   if (!holder) return;
 
   statusText.textContent =
-    potatoHolder === myId ? "🥔 You have the potato!" : `🥔 ${holder.name} has the potato`;
+    potatoHolder === myId
+      ? "🥔 You have the potato!"
+      : `🥔 ${holder.name} has the potato`;
 
-  if (potatoHolder === myId) startTimer();
-  else stopTimer();
+  if (potatoHolder === myId) {
+    throwBtn.disabled = false; // enable for holder
+    startTimer();
+  } else {
+    throwBtn.disabled = true; // disable for others
+    stopTimer();
+  }
 
   movePotatoTo(holder.id);
 }
