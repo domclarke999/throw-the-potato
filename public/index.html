@@ -1,60 +1,51 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
-<title>Throw the Potato</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="stylesheet" href="/style.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Throw the Potato</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <h1>🥔 Throw the Potato</h1>
 
-<div id="nameEntry">
-  <input type="text" id="nameInput" placeholder="Enter your name">
-  <button id="nameBtn">Join Lobby</button>
+<!-- NAME ENTRY -->
+<div id="nameScreen">
+  <input id="nameInput" placeholder="Enter your name" />
+  <button id="nameBtn">Continue</button>
 </div>
 
+<!-- LOBBY -->
 <div id="lobby" hidden>
-  <p id="status">Waiting for players…</p>
+  <p id="status">Waiting…</p>
+
   <div id="hostControls" hidden>
-    <label>Players:
-      <select id="playerSelect">
-        <option value="2">2</option>
-        <option value="3">3</option>
-        <option value="4">4</option>
-        <option value="5">5</option>
-        <option value="6">6</option>
-        <option value="7">7</option>
-        <option value="8">8</option>
-        <option value="9">9</option>
-        <option value="10">10</option>
-        <option value="11">11</option>
-        <option value="12">12</option>
-        <option value="13">13</option>
-        <option value="14">14</option>
-        <option value="15">15</option>
-        <option value="16">16</option>
-        <option value="17">17</option>
-        <option value="18">18</option>
-        <option value="19">19</option>
-        <option value="20">20</option>
-      </select>
-    </label>
-    <button id="startBtn">Set Game</button>
+    <label>Players:</label>
+    <select id="playerSelect">
+      <option value="2">2</option>
+      <option value="3">3</option>
+      <option value="4">4</option>
+      <option value="5">5</option>
+      <option value="10">10</option>
+      <option value="15">15</option>
+      <option value="20">20</option>
+    </select>
+    <button id="joinBtn">Join Lobby</button>
   </div>
 </div>
 
+<!-- GAME -->
 <div id="game" hidden>
-  <p id="holder">Potato is with: </p>
-  <div id="arena">
-    <div id="potato">🥔</div>
-  </div>
-  <p id="timer">Time: 30</p>
-  <button id="throwBtn" disabled>Throw Potato</button>
+  <p id="holder"></p>
+  <p id="timer"></p>
+
+  <!-- 🥔 POTATO (NO IMAGE FILE) -->
+  <div id="potato">🥔</div>
+
+  <button id="throwBtn">Throw Potato</button>
 </div>
 
-<audio id="incomingSound" src="incoming.wav" preload="auto"></audio>
+<audio id="incomingSound" src="incoming.wav"></audio>
 
 <script src="/socket.io/socket.io.js"></script>
 <script src="client.js"></script>
