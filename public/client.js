@@ -21,16 +21,18 @@ const forfeitScreen = document.createElement("div");
 forfeitScreen.id = "forfeit";
 forfeitScreen.style.display = "none";
 forfeitScreen.innerHTML = `
-<h2>You are eliminated!</h2>
-<p id="challengeText"></p>
+  <h2>You made a right mash of things and deserve a roasting!!</h2>
+  <p><strong>Here is your forfeit....chip away at it:</strong></p>
+  <p id="challengeText"></p>
 `;
-
 document.body.appendChild(forfeitScreen);
 
 const survivedScreen = document.createElement("div");
 survivedScreen.id = "survived";
 survivedScreen.style.display = "none";
-survivedScreen.innerHTML = `<h2 id="surviveMsg"></h2>`;
+survivedScreen.innerHTML = `
+  <h2 id="surviveMsg"></h2>
+`;
 document.body.appendChild(survivedScreen);
 
 let myId;
@@ -50,17 +52,21 @@ nameBtn.onclick = () => {
 };
 
 // Host controls
-socket.on("host", () => { hostControls.hidden = false; });
+socket.on("host", () => {
+  hostControls.hidden = false;
+});
+
 startBtn.onclick = () => {
   socket.emit("setPlayerCount", Number(playerSelect.value));
   hostControls.hidden = true;
 };
 
 // Lobby updates
-socket.on("lobbyUpdate", ({waiting, required}) => {
-  status.textContent = waiting > 0 
-    ? `Waiting for ${waiting} player(s) to join (out of ${required})...` 
-    : "Lobby full! Game will start soon...";
+socket.on("lobbyUpdate", ({ waiting, required }) => {
+  status.textContent =
+    waiting > 0
+      ? `Waiting for ${waiting} player(s) to join (out of ${required})...`
+      : "Lobby full! Game will start soon...";
 });
 
 // Game start
@@ -85,14 +91,15 @@ socket.on("potatoThrown", ({ to }) => {
   potatoHolder = to;
   updateUI();
   triggerAnimation();
+
   if (to === socket.id) {
-    sound.play().catch(()=>{});
+    sound.play().catch(() => {});
     navigator.vibrate?.(200);
     startTimer(30);
   }
 });
 
-// Eliminated player challenge
+// ✅ UPDATED ELIMINATED MESSAGE
 socket.on("playerEliminated", ({ challenge }) => {
   game.hidden = true;
   forfeitScreen.style.display = "block";
@@ -100,7 +107,7 @@ socket.on("playerEliminated", ({ challenge }) => {
   stopTimer();
 });
 
-// Message for surviving players
+// Survivors message
 socket.on("survivedMessage", ({ message }) => {
   game.hidden = true;
   survivedScreen.style.display = "block";
@@ -111,7 +118,7 @@ socket.on("survivedMessage", ({ message }) => {
 // Animation
 function triggerAnimation() {
   potato.classList.remove("fly");
-  void potato.offsetHeight; // force reflow
+  void potato.offsetHeight;
   potato.classList.add("fly");
 }
 
@@ -134,6 +141,8 @@ function stopTimer() {
 // Update UI
 function updateUI() {
   const holder = players.find(p => p.id === potatoHolder);
-  holderEl.textContent = `Potato is with: ${holder?.id === socket.id ? "You" : holder?.name || potatoHolder}`;
+  holderEl.textContent = `Potato is with: ${
+    holder?.id === socket.id ? "You" : holder?.name || "Unknown"
+  }`;
   throwBtn.disabled = socket.id !== potatoHolder;
 }
