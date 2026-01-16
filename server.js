@@ -8,110 +8,144 @@ const io = new Server(server);
 
 app.use(express.static("public"));
 
-let players = []; // {id, name}
-let requiredPlayers = 2;
-let potatoHolder = null;
-let timer = null;
-let gameActive = false;
-
-// Random challenges
 const challenges = [
-  "Do 10 jumping jacks!",
-  "Sing a song for 30 seconds!",
-  "Speak in an accent until your next turn!",
-  "Do a funny dance move!",
-  "Make a silly face for 10 seconds!",
-  "Tell a joke!",
-  "Hop on one leg for 10 seconds!",
-  "Act like a chicken for 5 seconds!"
+  "Do 10 star jumps",
+  "Sing a song chosen by the group",
+  "Speak in an accent for 2 minutes",
+  "Drink a glass of water upside down",
+  "Tell your most embarrassing story"
 ];
 
-// Send lobby updates
-function updateLobby() {
-  const waiting = requiredPlayers - players.length;
-  io.emit("lobbyUpdate", { waiting: waiting > 0 ? waiting : 0, required: requiredPlayers });
-}
+let lobby = {
+  players: [],
+  started: false,
+  requiredPlayers: 2,
+  potatoHolder: null,
+  gameStartTime: null,
+  holdLimit: 60
+};
 
-// Start game
-function startGame() {
-  if (players.length < requiredPlayers) return;
-  gameActive = true;
-  potatoHolder = players[Math.floor(Math.random() * players.length)].id;
-  io.emit("gameStart", { potatoHolder, players });
-  startTimer();
-}
-
-// Timer for current holder
-function startTimer() {
-  clearTimeout(timer);
-  timer = setTimeout(() => {
-    // First player eliminated
-    const eliminated = players.find(p => p.id === potatoHolder);
-    if (!eliminated) return;
-
-    gameActive = false; // Stop the game
-
-    // Pick random challenge
-    const challenge = challenges[Math.floor(Math.random() * challenges.length)];
-
-    // Notify eliminated player
-    io.to(eliminated.id).emit("playerEliminated", { challenge });
-
-    // Notify remaining players
-    players.forEach(p => {
-      if (p.id !== eliminated.id) {
-        io.to(p.id).emit("survivedMessage", { message: "You got lucky this time, Potato Head!" });
-      }
-    });
-
-  }, 30000); // 30s per throw
+function recalcHoldLimit() {
+  const minutes = Math.floor((Date.now() - lobby.gameStartTime) / 120000);
+  lobby.holdLimit = Math.max(20, 60 - minutes * 10);
 }
 
 io.on("connection", socket => {
-  console.log("Connected:", socket.id);
+  socket.player = {
+    id: socket.id,
+    name: "",
+    totalHoldTime: 0,
+    holdingSince: null
+  };
 
-  // Player submits name
+  lobby.players.push(socket.player);
+
+  if (lobby.players.length === 1) {
+    socket.emit("host");
+  }
+
+  socket.emit("joined");
+
   socket.on("setName", name => {
-    players.push({ id: socket.id, name });
-    
-    // First player is host
-    if (players.length === 1) socket.emit("host");
-
-    updateLobby();
-
-    // Auto-start if enough players
-    if (!gameActive && players.length >= requiredPlayers) startGame();
+    socket.player.name = name;
   });
 
   socket.on("setPlayerCount", count => {
-    requiredPlayers = count;
-    updateLobby();
+    lobby.requiredPlayers = count;
+    io.emit("lobbyUpdate", {
+      waiting: lobby.requiredPlayers - lobby.players.length,
+      required: lobby.requiredPlayers
+    });
   });
+
+  if (!lobby.started) {
+    io.emit("lobbyUpdate", {
+      waiting: lobby.requiredPlayers - lobby.players.length,
+      required: lobby.requiredPlayers
+    });
+  }
+
+  if (!lobby.started && lobby.players.length === lobby.requiredPlayers) {
+    lobby.started = true;
+    lobby.gameStartTime = Date.now();
+    lobby.potatoHolder = lobby.players[Math.floor(Math.random() * lobby.players.length)].id;
+
+    lobby.players.forEach(p => {
+      if (p.id === lobby.potatoHolder) {
+        p.holdingSince = Date.now();
+      }
+    });
+
+    io.emit("gameStart", {
+      players: lobby.players.map(p => ({ id: p.id, name: p.name })),
+      potatoHolder: lobby.potatoHolder
+    });
+  }
 
   socket.on("throwPotato", () => {
-    if (!gameActive) return;
-    if (socket.id !== potatoHolder) return;
+    if (socket.id !== lobby.potatoHolder) return;
 
-    clearTimeout(timer);
+    const now = Date.now();
+    socket.player.totalHoldTime += now - socket.player.holdingSince;
 
-    const others = players.filter(p => p.id !== socket.id);
-    if (others.length === 0) return;
+    const others = lobby.players.filter(p => p.id !== socket.id);
+    const target = others[Math.floor(Math.random() * others.length)];
 
-    potatoHolder = others[Math.floor(Math.random() * others.length)].id;
-    io.emit("potatoThrown", { to: potatoHolder });
-    startTimer();
+    lobby.potatoHolder = target.id;
+    target.holdingSince = now;
+
+    io.emit("potatoThrown", { to: target.id });
   });
 
-  socket.on("disconnect", () => {
-    players = players.filter(p => p.id !== socket.id);
-    updateLobby();
-    if (potatoHolder === socket.id && gameActive && players.length > 0) {
-      potatoHolder = players[Math.floor(Math.random() * players.length)].id;
-      io.emit("potatoThrown", { to: potatoHolder });
-      startTimer();
+  const interval = setInterval(() => {
+    if (!lobby.started) return;
+
+    recalcHoldLimit();
+
+    const holder = lobby.players.find(p => p.id === lobby.potatoHolder);
+    if (!holder) return;
+
+    const heldFor = (Date.now() - holder.holdingSince) / 1000;
+
+    if (heldFor > 30 && !holder.burningWarned) {
+      holder.burningWarned = true;
+      io.to(holder.id).emit("burning");
     }
+
+    if (lobby.holdLimit - heldFor <= 30 && !holder.finalWarned) {
+      holder.finalWarned = true;
+      io.to(holder.id).emit("finalWarning");
+    }
+
+    if (heldFor >= lobby.holdLimit) {
+      // ELIMINATION
+      const challenge = challenges[Math.floor(Math.random() * challenges.length)];
+
+      io.to(holder.id).emit("playerEliminated", { challenge });
+
+      lobby.players
+        .filter(p => p.id !== holder.id)
+        .forEach(p =>
+          io.to(p.id).emit("survivedMessage", {
+            message: "You got lucky this time, Potato Head"
+          })
+        );
+
+      lobby.players.sort((a, b) => a.totalHoldTime - b.totalHoldTime);
+      lobby.players.push(lobby.players.splice(lobby.players.indexOf(holder), 1)[0]);
+
+      io.emit("scoreboard", lobby.players);
+
+      lobby.started = false;
+      clearInterval(interval);
+    }
+  }, 1000);
+
+  socket.on("disconnect", () => {
+    lobby.players = lobby.players.filter(p => p.id !== socket.id);
   });
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log("Server running on port", PORT));
+server.listen(3000, () => {
+  console.log("Server running on http://localhost:3000");
+});
