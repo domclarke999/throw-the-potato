@@ -1,7 +1,6 @@
 const socket = io();
 
 /* ---------------- DOM ---------------- */
-
 const nameScreen = document.getElementById("nameScreen");
 const lobbyScreen = document.getElementById("lobbyScreen");
 const gameScreen = document.getElementById("gameScreen");
@@ -22,7 +21,6 @@ const playersContainer = document.getElementById("players");
 const potato = document.getElementById("potato");
 
 /* ---------------- STATE ---------------- */
-
 let myId = null;
 let isHost = false;
 let players = [];
@@ -31,7 +29,6 @@ let holdTimer = null;
 let holdSeconds = 0;
 
 /* ---------------- HELPERS ---------------- */
-
 function show(screen) {
   nameScreen.style.display = "none";
   lobbyScreen.style.display = "none";
@@ -43,7 +40,6 @@ function startTimer() {
   clearInterval(holdTimer);
   holdSeconds = 0;
   timerText.textContent = "0s";
-
   holdTimer = setInterval(() => {
     holdSeconds++;
     timerText.textContent = holdSeconds + "s";
@@ -56,7 +52,6 @@ function stopTimer() {
 }
 
 /* ---------------- SOCKET EVENTS ---------------- */
-
 socket.on("joined", data => {
   myId = data.yourId;
   show(nameScreen);
@@ -85,15 +80,11 @@ socket.on("lobbyUpdate", data => {
 
 socket.on("gameStart", data => {
   show(gameScreen);
-
   players = data.players;
   potatoHolder = data.potatoHolder;
-
   renderPlayers();
   updatePotatoState();
 });
-
-/* ---------------- GAME EVENTS ---------------- */
 
 socket.on("potatoThrown", data => {
   animatePotato(potatoHolder, data.to);
@@ -102,20 +93,19 @@ socket.on("potatoThrown", data => {
 });
 
 /* ---------------- UI ACTIONS ---------------- */
-
 saveNameBtn.onclick = () => {
   const name = nameInput.value.trim();
   if (!name) return;
-
   socket.emit("setName", name);
   show(lobbyScreen);
 };
 
-playerCountSelect.onchange = () => {
-  socket.emit("setPlayerCount", Number(playerCountSelect.value));
-};
-
 joinLobbyBtn.onclick = () => {
+  if (isHost) {
+    const count = Number(playerCountSelect.value);
+    socket.emit("setPlayerCount", count);
+    playerCountSelect.disabled = true;
+  }
   socket.emit("joinLobby");
 };
 
@@ -126,60 +116,44 @@ throwBtn.onclick = () => {
 };
 
 /* ---------------- RENDER ---------------- */
-
 function renderPlayers() {
   playersContainer.innerHTML = "";
-
   players.forEach((p, index) => {
     const el = document.createElement("div");
     el.className = "player";
     el.dataset.id = p.id;
     el.textContent = p.name;
-
     el.style.left = 50 + index * 120 + "px";
     el.style.top = "80px";
-
     playersContainer.appendChild(el);
   });
 }
 
 function updatePotatoState() {
   const holder = players.find(p => p.id === potatoHolder);
-
   if (!holder) return;
 
-  statusText.textContent = `${holder.name} has the potato`;
+  statusText.textContent =
+    potatoHolder === myId ? "🥔 You have the potato!" : `🥔 ${holder.name} has the potato`;
 
-  if (potatoHolder === myId) {
-    throwBtn.disabled = false;
-    startTimer();
-  } else {
-    throwBtn.disabled = true;
-    stopTimer();
-  }
+  if (potatoHolder === myId) startTimer();
+  else stopTimer();
 
   movePotatoTo(holder.id);
 }
 
 /* ---------------- POTATO ANIMATION ---------------- */
-
 function movePotatoTo(playerId) {
   const target = document.querySelector(`.player[data-id="${playerId}"]`);
   if (!target) return;
-
   const pRect = target.getBoundingClientRect();
   const cRect = playersContainer.getBoundingClientRect();
-
   const x = pRect.left - cRect.left + pRect.width / 2;
   const y = pRect.top - cRect.top - 30;
-
   potato.style.transform = `translate(${x}px, ${y}px)`;
 }
 
 function animatePotato(fromId, toId) {
   movePotatoTo(fromId);
-
-  setTimeout(() => {
-    movePotatoTo(toId);
-  }, 50);
+  setTimeout(() => movePotatoTo(toId), 50);
 }
