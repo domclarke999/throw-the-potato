@@ -9,13 +9,11 @@
 
 <h1>🥔 Throw the Potato</h1>
 
-<!-- NAME ENTRY -->
 <div id="nameScreen">
   <input id="nameInput" placeholder="Enter your name" />
   <button id="nameBtn">Continue</button>
 </div>
 
-<!-- LOBBY -->
 <div id="lobby" hidden>
   <p id="status">Waiting…</p>
 
@@ -34,20 +32,16 @@
   </div>
 </div>
 
-<!-- GAME -->
 <div id="game" hidden>
   <p id="holder"></p>
-  <p id="timer"></p>
-
-  <!-- 🥔 POTATO (NO IMAGE FILE) -->
   <div id="potato">🥔</div>
-
   <button id="throwBtn">Throw Potato</button>
 </div>
 
-<audio id="incomingSound" src="incoming.wav"></audio>
-
 <script src="/socket.io/socket.io.js"></script>
+
+<!-- ✅ SCRIPT AT VERY END -->
 <script src="client.js"></script>
+
 </body>
 </html>
