@@ -8,98 +8,112 @@ const io = new Server(server);
 
 app.use(express.static("public"));
 
-const challenges = [
-  "Do 10 star jumps",
-  "Sing a song chosen by the group",
-  "Speak in an accent for 2 minutes",
-  "Tell an embarrassing story"
-];
-
 let lobby = {
-  players: [],
+  hostId: null,
   requiredPlayers: null,
   started: false,
-  potatoHolder: null
+  players: [] // {id, name}
 };
 
-function tryStartGame() {
-  if (
-    !lobby.started &&
-    lobby.requiredPlayers &&
-    lobby.players.length === lobby.requiredPlayers
-  ) {
-    lobby.started = true;
-
-    const holder =
-      lobby.players[Math.floor(Math.random() * lobby.players.length)];
-
-    lobby.potatoHolder = holder.id;
-
-    holder.holdingSince = Date.now();
-
-    io.emit("gameStart", {
-      players: lobby.players.map(p => ({ id: p.id, name: p.name })),
-      potatoHolder: lobby.potatoHolder
-    });
-  }
-}
-
 io.on("connection", socket => {
-  const player = {
-    id: socket.id,
-    name: "",
-    holdingSince: null
-  };
-
-  lobby.players.push(player);
-
-  // Host = first player
-  if (lobby.players.length === 1) {
-    socket.emit("host");
-  }
+  console.log("Connected:", socket.id);
 
   socket.emit("joined", { yourId: socket.id });
 
-  io.emit("lobbyUpdate", {
-    waiting:
-      lobby.requiredPlayers
-        ? lobby.requiredPlayers - lobby.players.length
-        : "?",
-    required: lobby.requiredPlayers
-  });
+  // FIRST PLAYER IS HOST
+  if (!lobby.hostId) {
+    lobby.hostId = socket.id;
+    socket.emit("host");
+  }
 
   socket.on("setName", name => {
-    player.name = name;
+    socket.name = name;
   });
 
   socket.on("setPlayerCount", count => {
-    if (lobby.requiredPlayers === null) {
-      lobby.requiredPlayers = count;
-      io.emit("lobbyUpdate", {
-        waiting: count - lobby.players.length,
-        required: count
-      });
-      tryStartGame();
-    }
-  });
+    if (socket.id !== lobby.hostId) return;
 
-  socket.on("throwPotato", () => {
-    if (socket.id !== lobby.potatoHolder) return;
-
-    const others = lobby.players.filter(p => p.id !== socket.id);
-    if (!others.length) return;
-
-    const target = others[Math.floor(Math.random() * others.length)];
-    lobby.potatoHolder = target.id;
-
-    io.emit("potatoThrown", { to: target.id });
+    lobby.requiredPlayers = count;
+    broadcastLobby();
   });
 
   socket.on("disconnect", () => {
     lobby.players = lobby.players.filter(p => p.id !== socket.id);
+
+    if (socket.id === lobby.hostId) {
+      lobby.hostId = lobby.players[0]?.id || null;
+      if (lobby.hostId) io.to(lobby.hostId).emit("host");
+    }
+
+    broadcastLobby();
+  });
+
+  socket.on("joinLobby", () => {
+    if (lobby.started) return;
+
+    if (!lobby.players.find(p => p.id === socket.id)) {
+      lobby.players.push({ id: socket.id, name: socket.name });
+    }
+
+    broadcastLobby();
+
+    // ✅ THIS WAS MISSING
+    if (
+      lobby.requiredPlayers &&
+      lobby.players.length === lobby.requiredPlayers
+    ) {
+      startGame();
+    }
+  });
+
+  socket.on("throwPotato", () => {
+    if (!lobby.started) return;
+    movePotato();
   });
 });
 
-server.listen(3000, () =>
-  console.log("Server running on http://localhost:3000")
-);
+/* -------------------- */
+
+let potatoHolder = null;
+
+function startGame() {
+  lobby.started = true;
+
+  potatoHolder =
+    lobby.players[Math.floor(Math.random() * lobby.players.length)].id;
+
+  io.emit("gameStart", {
+    players: lobby.players,
+    potatoHolder
+  });
+
+  console.log("Game started");
+}
+
+function movePotato() {
+  const others = lobby.players.filter(p => p.id !== potatoHolder);
+  if (!others.length) return;
+
+  potatoHolder = others[Math.floor(Math.random() * others.length)].id;
+  io.emit("potatoThrown", { to: potatoHolder });
+}
+
+function broadcastLobby() {
+  if (!lobby.requiredPlayers) {
+    io.emit("lobbyUpdate", { waiting: "?", required: "?" });
+    return;
+  }
+
+  const waiting = lobby.requiredPlayers - lobby.players.length;
+
+  io.emit("lobbyUpdate", {
+    waiting,
+    required: lobby.requiredPlayers
+  });
+}
+
+/* -------------------- */
+
+server.listen(3000, () => {
+  console.log("Server running on http://localhost:3000");
+});
