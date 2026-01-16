@@ -1,111 +1,185 @@
-console.log("client.js loaded"); // 🔥 confirms file loads
-
 const socket = io();
 
+/* ---------------- DOM ---------------- */
+
 const nameScreen = document.getElementById("nameScreen");
-const nameInput = document.getElementById("nameInput");
-const nameBtn = document.getElementById("nameBtn");
+const lobbyScreen = document.getElementById("lobbyScreen");
+const gameScreen = document.getElementById("gameScreen");
 
-const lobby = document.getElementById("lobby");
-const status = document.getElementById("status");
-const hostControls = document.getElementById("hostControls");
-const playerSelect = document.getElementById("playerSelect");
-const joinBtn = document.getElementById("joinBtn");
+const nameInput = document.getElementById("playerName");
+const saveNameBtn = document.getElementById("saveName");
 
-const game = document.getElementById("game");
-const holderEl = document.getElementById("holder");
+const playerCountSelect = document.getElementById("playerCount");
+const joinLobbyBtn = document.getElementById("joinLobby");
+
+const lobbyText = document.getElementById("lobbyText");
+
+const statusText = document.getElementById("status");
 const throwBtn = document.getElementById("throwBtn");
+const timerText = document.getElementById("timer");
+
+const playersContainer = document.getElementById("players");
 const potato = document.getElementById("potato");
 
+/* ---------------- STATE ---------------- */
+
 let myId = null;
+let isHost = false;
 let players = [];
 let potatoHolder = null;
+let holdTimer = null;
+let holdSeconds = 0;
 
-/* CONNECTION CONFIRM */
-socket.on("connect", () => {
-  console.log("Connected to server", socket.id);
-});
+/* ---------------- HELPERS ---------------- */
 
-/* SERVER ASSIGNS ID */
+function show(screen) {
+  nameScreen.style.display = "none";
+  lobbyScreen.style.display = "none";
+  gameScreen.style.display = "none";
+  screen.style.display = "block";
+}
+
+function startTimer() {
+  clearInterval(holdTimer);
+  holdSeconds = 0;
+  timerText.textContent = "0s";
+
+  holdTimer = setInterval(() => {
+    holdSeconds++;
+    timerText.textContent = holdSeconds + "s";
+  }, 1000);
+}
+
+function stopTimer() {
+  clearInterval(holdTimer);
+  timerText.textContent = "";
+}
+
+/* ---------------- SOCKET EVENTS ---------------- */
+
 socket.on("joined", data => {
   myId = data.yourId;
-  console.log("My ID:", myId);
+  show(nameScreen);
 });
 
-/* ✅ CONTINUE BUTTON — NOW GUARANTEED */
-nameBtn.addEventListener("click", () => {
-  console.log("Continue clicked");
+socket.on("host", () => {
+  isHost = true;
+  playerCountSelect.style.display = "inline-block";
+});
 
-  const name = nameInput.value.trim();
-  if (!name) {
-    alert("Please enter a name");
+socket.on("lobbyUpdate", data => {
+  show(lobbyScreen);
+
+  if (data.waiting === "?") {
+    lobbyText.textContent = "Waiting for host to select player count…";
     return;
   }
 
-  socket.emit("setName", name);
-  nameScreen.hidden = true;
-  lobby.hidden = false;
+  if (data.waiting > 0) {
+    lobbyText.textContent =
+      `Waiting for ${data.waiting} more player(s) (of ${data.required})`;
+  } else {
+    lobbyText.textContent = "Starting game…";
+  }
 });
 
-/* HOST */
-socket.on("host", () => {
-  hostControls.hidden = false;
-});
-
-/* JOIN LOBBY */
-joinBtn.addEventListener("click", () => {
-  const count = Number(playerSelect.value);
-  socket.emit("setPlayerCount", count);
-  status.textContent = "Waiting for players...";
-});
-
-/* LOBBY STATUS */
-socket.on("lobbyUpdate", ({ waiting, required }) => {
-  status.textContent =
-    waiting === "?"
-      ? "Waiting for host..."
-      : `Waiting for ${waiting} more player(s) (of ${required})`;
-});
-
-/* GAME START */
 socket.on("gameStart", data => {
+  show(gameScreen);
+
   players = data.players;
   potatoHolder = data.potatoHolder;
-  lobby.hidden = true;
-  game.hidden = false;
-  updateUI();
+
+  renderPlayers();
+  updatePotatoState();
 });
 
-/* THROW */
-throwBtn.addEventListener("click", () => {
+/* ---------------- GAME EVENTS ---------------- */
+
+socket.on("potatoThrown", data => {
+  animatePotato(potatoHolder, data.to);
+  potatoHolder = data.to;
+  updatePotatoState();
+});
+
+/* ---------------- UI ACTIONS ---------------- */
+
+saveNameBtn.onclick = () => {
+  const name = nameInput.value.trim();
+  if (!name) return;
+
+  socket.emit("setName", name);
+  show(lobbyScreen);
+};
+
+playerCountSelect.onchange = () => {
+  socket.emit("setPlayerCount", Number(playerCountSelect.value));
+};
+
+joinLobbyBtn.onclick = () => {
+  socket.emit("joinLobby");
+};
+
+throwBtn.onclick = () => {
   socket.emit("throwPotato");
-});
+  throwBtn.disabled = true;
+  stopTimer();
+};
 
-/* POTATO MOVED */
-socket.on("potatoThrown", ({ to }) => {
-  potatoHolder = to;
-  animatePotato();
-  updateUI();
-});
+/* ---------------- RENDER ---------------- */
 
-/* UI */
-function updateUI() {
-  const holder = players.find(p => p.id === potatoHolder);
+function renderPlayers() {
+  playersContainer.innerHTML = "";
 
-  if (!holder) {
-    holderEl.textContent = "🥔 Potato is in play...";
-  } else if (holder.id === myId) {
-    holderEl.textContent = "🥔 You have the potato!";
-  } else {
-    holderEl.textContent = `🥔 ${holder.name} has the potato`;
-  }
+  players.forEach((p, index) => {
+    const el = document.createElement("div");
+    el.className = "player";
+    el.dataset.id = p.id;
+    el.textContent = p.name;
 
-  throwBtn.disabled = myId !== potatoHolder;
+    el.style.left = 50 + index * 120 + "px";
+    el.style.top = "80px";
+
+    playersContainer.appendChild(el);
+  });
 }
 
-/* ANIMATION */
-function animatePotato() {
-  potato.classList.remove("fly");
-  void potato.offsetWidth;
-  potato.classList.add("fly");
+function updatePotatoState() {
+  const holder = players.find(p => p.id === potatoHolder);
+
+  if (!holder) return;
+
+  statusText.textContent = `${holder.name} has the potato`;
+
+  if (potatoHolder === myId) {
+    throwBtn.disabled = false;
+    startTimer();
+  } else {
+    throwBtn.disabled = true;
+    stopTimer();
+  }
+
+  movePotatoTo(holder.id);
+}
+
+/* ---------------- POTATO ANIMATION ---------------- */
+
+function movePotatoTo(playerId) {
+  const target = document.querySelector(`.player[data-id="${playerId}"]`);
+  if (!target) return;
+
+  const pRect = target.getBoundingClientRect();
+  const cRect = playersContainer.getBoundingClientRect();
+
+  const x = pRect.left - cRect.left + pRect.width / 2;
+  const y = pRect.top - cRect.top - 30;
+
+  potato.style.transform = `translate(${x}px, ${y}px)`;
+}
+
+function animatePotato(fromId, toId) {
+  movePotatoTo(fromId);
+
+  setTimeout(() => {
+    movePotatoTo(toId);
+  }, 50);
 }
