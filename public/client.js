@@ -44,6 +44,7 @@ function startCountdown() {
   clearInterval(holdTimer);
   countdown = maxHoldTime;
   timerText.textContent = countdown + "s";
+
   holdTimer = setInterval(() => {
     countdown--;
     timerText.textContent = countdown + "s";
@@ -55,7 +56,7 @@ function startCountdown() {
 
     if (countdown <= 0) {
       clearInterval(holdTimer);
-      socket.emit("throwPotato"); // auto throw when time runs out
+      socket.emit("throwPotato"); // player automatically eliminated on server
     }
   }, 1000);
 }
@@ -73,7 +74,7 @@ socket.on("joined", data => {
 
 socket.on("host", () => {
   isHost = true;
-  document.getElementById("hostControls").style.display = "block";
+  document.getElementById("hostControls").style.display = "block"; // host only
 });
 
 socket.on("lobbyUpdate", data => {
@@ -98,7 +99,7 @@ socket.on("potatoThrown", data => {
   potatoHolder = data.to;
   animatePotato(data.from, data.to);
   updatePotatoState();
-  // Play sound and vibrate if it is your turn
+
   if (potatoHolder === myId) {
     incomingSound.play();
     if (navigator.vibrate) navigator.vibrate(500);
@@ -107,6 +108,23 @@ socket.on("potatoThrown", data => {
 
 socket.on("scoreboard", scores => {
   updateScoreboard(scores);
+});
+
+socket.on("eliminated", data => {
+  if (data.player === myId) {
+    alert(data.message);
+  } else {
+    alert("You got lucky this time, Potato Head!");
+  }
+  stopCountdown();
+});
+
+socket.on("gameEnd", data => {
+  stopCountdown();
+  show(gameScreen);
+  statusText.textContent = "Game Over!";
+  players = data.players;
+  updateScoreboard(data.scores);
 });
 
 /* ---------------- UI ACTIONS ---------------- */
