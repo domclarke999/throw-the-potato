@@ -1,47 +1,77 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Throw the Potato</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <title>Throw The Potato 🥔</title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+
+  <!-- Socket.IO -->
+  <script src="/socket.io/socket.io.js"></script>
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- Prevent iOS zoom -->
+  <style>
+    input, button, select {
+      font-size: 16px;
+    }
+  </style>
 </head>
 <body>
 
-<h1>🥔 Throw the Potato</h1>
-
-<div id="nameScreen">
-  <input id="nameInput" placeholder="Enter your name" />
-  <button id="nameBtn">Continue</button>
-</div>
-
-<div id="lobby" hidden>
-  <p id="status">Waiting…</p>
-
-  <div id="hostControls" hidden>
-    <label>Players:</label>
-    <select id="playerSelect">
-      <option value="2">2</option>
-      <option value="3">3</option>
-      <option value="4">4</option>
-      <option value="5">5</option>
-      <option value="10">10</option>
-      <option value="15">15</option>
-      <option value="20">20</option>
-    </select>
-    <button id="joinBtn">Join Lobby</button>
+  <!-- NAME ENTRY -->
+  <div id="nameScreen">
+    <h1>🥔 Throw The Potato</h1>
+    <p>Enter your name</p>
+    <input id="playerName" placeholder="Your name" />
+    <br /><br />
+    <button id="saveName">Continue</button>
   </div>
-</div>
 
-<div id="game" hidden>
-  <p id="holder"></p>
-  <div id="potato">🥔</div>
-  <button id="throwBtn">Throw Potato</button>
-</div>
+  <!-- LOBBY -->
+  <div id="lobbyScreen" style="display:none">
+    <h2>Lobby</h2>
 
-<script src="/socket.io/socket.io.js"></script>
+    <div id="hostControls">
+      <label for="playerCount">Players:</label>
+      <select id="playerCount">
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+        <option value="5">5</option>
+        <option value="6">6</option>
+        <option value="7">7</option>
+        <option value="8">8</option>
+        <option value="9">9</option>
+        <option value="10">10</option>
+        <option value="15">15</option>
+        <option value="20">20</option>
+      </select>
+    </div>
 
-<!-- ✅ SCRIPT AT VERY END -->
-<script src="client.js"></script>
+    <br />
+    <button id="joinLobby">Join Lobby</button>
+
+    <p id="lobbyText"></p>
+  </div>
+
+  <!-- GAME -->
+  <div id="gameScreen" style="display:none">
+    <h2 id="status">Waiting…</h2>
+
+    <div id="playersWrapper">
+      <div id="players"></div>
+      <div id="potato">🥔</div>
+    </div>
+
+    <button id="throwBtn" disabled>Throw Potato</button>
+    <div id="timer"></div>
+  </div>
+
+  <!-- Client -->
+  <script src="client.js"></script>
 
 </body>
 </html>
