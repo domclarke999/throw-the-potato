@@ -1,48 +1,33 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Throw The Potato 🥔</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta charset="UTF-8" />
+  <title>Throw the Potato</title>
   <link rel="stylesheet" href="style.css" />
-  <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
-
-  <!-- NAME ENTRY -->
+  <!-- Name entry -->
   <div id="nameScreen">
-    <h1>🥔 Throw The Potato</h1>
-    <p>Enter your name:</p>
-    <input id="playerName" placeholder="Your name" />
-    <br/><br/>
-    <button id="saveName">Continue</button>
+    <h1>Throw the Potato</h1>
+    <input id="playerName" placeholder="Enter your name" />
+    <button id="saveName">Save Name</button>
   </div>
 
-  <!-- LOBBY -->
+  <!-- Lobby -->
   <div id="lobbyScreen" style="display:none">
     <h2>Lobby</h2>
     <div id="hostControls" style="display:none">
       <label for="playerCount">Players:</label>
       <select id="playerCount">
-        <option value="2">2</option>
-        <option value="3">3</option>
-        <option value="4">4</option>
-        <option value="5">5</option>
-        <option value="6">6</option>
-        <option value="7">7</option>
-        <option value="8">8</option>
-        <option value="9">9</option>
-        <option value="10">10</option>
-        <option value="15">15</option>
-        <option value="20">20</option>
+        <!-- 2-20 players -->
+        ${[...Array(19)].map((_,i)=>`<option value="${i+2}">${i+2}</option>`).join('')}
       </select>
     </div>
-    <br/>
     <button id="joinLobby">Enter Salad Drawer</button>
-    <p id="lobbyText"></p>
+    <p id="lobbyText">Waiting…</p>
   </div>
 
-  <!-- GAME -->
+  <!-- Game Screen -->
   <div id="gameScreen" style="display:none">
     <h2 id="status">Waiting…</h2>
     <div id="playersWrapper">
@@ -51,12 +36,12 @@
     </div>
     <button id="throwBtn" disabled>Throw Potato</button>
     <div id="timer"></div>
-    <h3>Scoreboard</h3>
-    <ul id="scoreboard"></ul>
+    <div id="message"></div>
+    <ol id="scoreboard"></ol>
+    <audio id="incomingSound" src="incoming.wav"></audio>
   </div>
 
-  <audio id="incomingSound" src="sounds/incoming.wav"></audio>
-
+  <script src="/socket.io/socket.io.js"></script>
   <script src="client.js"></script>
 </body>
 </html>
