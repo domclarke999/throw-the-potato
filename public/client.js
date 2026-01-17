@@ -255,5 +255,26 @@ function updateScoreboard(scores){
 }
 
 
+socket.on("potatoUpdate", (data) => {
+  const { holderId, holderName, timeLeft } = data;
 
+  potatoHolder = holderId;
+
+  // Update UI text
+  if (potatoHolder === myId) {
+    statusEl.textContent = `You have the potato!`;
+    throwBtn.disabled = false;
+
+    // 🔊 🔥 SOUND + VIBRATION GO HERE
+    playIncomingSound();
+    if (navigator.vibrate) navigator.vibrate(500);
+
+  } else {
+    statusEl.textContent = `${holderName} has the potato`;
+    throwBtn.disabled = true;
+  }
+
+  // Reset and start timer
+  startCountdown(timeLeft);
+});
 
