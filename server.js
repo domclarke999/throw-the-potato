@@ -1,6 +1,7 @@
 import express from "express";
 import http from "http";
 import { Server } from "socket.io";
+import fs from "fs";
 
 const app = express();
 const server = http.createServer(app);
@@ -8,12 +9,11 @@ const io = new Server(server);
 
 app.use(express.static("public"));
 
-/* ---------------- STATE ---------------- */
-let lobbies = {}; 
+/* ================= CONFIG ================= */
 const INITIAL_HOLD_TIME = 60;
+const MAX_PLAYERS = 20;
 
-const fs = require("fs");
-
+/* ================= LOAD FORFEITS ================= */
 const forfeits = JSON.parse(
   fs.readFileSync("./forfeits.json", "utf8")
 );
@@ -22,6 +22,10 @@ function getRandomForfeit() {
   return forfeits[Math.floor(Math.random() * forfeits.length)];
 }
 
+/* ================= STATE ================= */
+let lobbies = {};
+
+/* ================= LOBBY HELPERS ================= */
 function createLobby() {
   const id = Math.random().toString(36).substring(2, 8);
   lobbies[id] = {
@@ -33,7 +37,7 @@ function createLobby() {
     potatoHolder: null,
     scores: {},
     maxHoldTime: INITIAL_HOLD_TIME,
-    holdInterval: null,
+    holdInterval: null
   };
   return lobbies[id];
 }
@@ -42,20 +46,27 @@ function broadcastLobby(lobby) {
   const waiting = lobby.requiredPlayers
     ? Math.max(0, lobby.requiredPlayers - lobby.players.length)
     : "?";
-  io.to(lobby.id).emit("lobbyUpdate", { waiting, required: lobby.requiredPlayers || "?" });
+
+  io.to(lobby.id).emit("lobbyUpdate", {
+    waiting,
+    required: lobby.requiredPlayers || "?"
+  });
 }
 
+/* ================= GAME FLOW ================= */
 function startGame(lobby) {
   lobby.started = true;
+
   const idx = Math.floor(Math.random() * lobby.players.length);
   lobby.potatoHolder = lobby.players[idx].id;
+
   lobby.players.forEach(p => (lobby.scores[p.id] = 0));
 
   io.to(lobby.id).emit("gameStart", {
     players: lobby.players,
     potatoHolder: lobby.potatoHolder,
     maxHoldTime: lobby.maxHoldTime,
-    scores: lobby.scores,
+    scores: lobby.scores
   });
 
   startHoldTimer(lobby);
@@ -68,23 +79,32 @@ function startHoldTimer(lobby) {
   lobby.holdInterval = setInterval(() => {
     countdown--;
     lobby.scores[lobby.potatoHolder] += 1;
+
     io.to(lobby.id).emit("scoreboard", lobby.scores);
 
-    if (countdown <= 30 && countdown > 0) {
+    if (countdown === 30) {
       io.to(lobby.id).emit("warning", {
         holder: lobby.potatoHolder,
-        message: "⚠️ Potato burning your mitts!",
+        message: "⚠️ Potato burning your mitts!"
       });
     }
 
     if (countdown <= 0) {
       clearInterval(lobby.holdInterval);
 
-      // ELIMINATION
       const eliminated = lobby.potatoHolder;
-      io.to(lobby.id).emit("eliminated", {
+      const forfeit = getRandomForfeit();
+
+      // Send forfeit ONLY to eliminated player
+      io.to(eliminated).emit("eliminated", {
         player: eliminated,
-        message: "You made a right mash of things, here is your forfeit",
+        message: "😵 You made a right mash of things, here is your forfeit",
+        forfeit
+      });
+
+      // Notify everyone else
+      io.to(lobby.id).emit("eliminated", {
+        player: eliminated
       });
 
       endGame(lobby);
@@ -94,21 +114,21 @@ function startHoldTimer(lobby) {
 
 function endGame(lobby) {
   lobby.started = false;
+  clearInterval(lobby.holdInterval);
 
-  // Sort scoreboard: eliminated player last
-  const sorted = [...lobby.players].sort((a, b) => {
-    if (a.id === lobby.potatoHolder) return 1; // eliminated last
+  const sortedPlayers = [...lobby.players].sort((a, b) => {
+    if (a.id === lobby.potatoHolder) return 1;
     if (b.id === lobby.potatoHolder) return -1;
     return lobby.scores[a.id] - lobby.scores[b.id];
   });
 
   io.to(lobby.id).emit("gameEnd", {
-    players: sorted,
-    scores: lobby.scores,
+    players: sortedPlayers,
+    scores: lobby.scores
   });
 }
 
-/* ---------------- SOCKET.IO ---------------- */
+/* ================= SOCKET.IO ================= */
 io.on("connection", socket => {
   let currentLobby = null;
   let player = { id: socket.id, name: "", lobbyId: null };
@@ -116,9 +136,11 @@ io.on("connection", socket => {
   socket.on("setName", name => {
     player.name = name;
 
-    const openLobby = Object.values(lobbies).find(l => !l.started && l.players.length < 20);
-    if (openLobby) currentLobby = openLobby;
-    else currentLobby = createLobby();
+    const openLobby = Object.values(lobbies).find(
+      l => !l.started && l.players.length < MAX_PLAYERS
+    );
+
+    currentLobby = openLobby || createLobby();
 
     player.lobbyId = currentLobby.id;
     socket.join(currentLobby.id);
@@ -128,33 +150,45 @@ io.on("connection", socket => {
     currentLobby.players.push(player);
 
     socket.emit("joined", { yourId: socket.id });
-    if (socket.id === currentLobby.hostId) socket.emit("host");
+
+    if (socket.id === currentLobby.hostId) {
+      socket.emit("host");
+    }
 
     broadcastLobby(currentLobby);
   });
 
   socket.on("setPlayerCount", count => {
-    if (!currentLobby || socket.id !== currentLobby.hostId) return;
-    currentLobby.requiredPlayers = count;
+    if (!currentLobby) return;
+    if (socket.id !== currentLobby.hostId) return;
+
+    currentLobby.requiredPlayers = Math.min(count, MAX_PLAYERS);
     broadcastLobby(currentLobby);
   });
 
   socket.on("joinLobby", () => {
     if (!currentLobby) return;
+
     broadcastLobby(currentLobby);
 
-    if (currentLobby.requiredPlayers &&
-        currentLobby.players.length === currentLobby.requiredPlayers &&
-        !currentLobby.started) {
+    if (
+      currentLobby.requiredPlayers &&
+      currentLobby.players.length === currentLobby.requiredPlayers &&
+      !currentLobby.started
+    ) {
       startGame(currentLobby);
     }
   });
 
   socket.on("throwPotato", () => {
     if (!currentLobby || !currentLobby.started) return;
+    if (socket.id !== currentLobby.potatoHolder) return;
 
-    const others = currentLobby.players.filter(p => p.id !== currentLobby.potatoHolder);
-    if (others.length === 0) return;
+    const others = currentLobby.players.filter(
+      p => p.id !== currentLobby.potatoHolder
+    );
+
+    if (!others.length) return;
 
     const idx = Math.floor(Math.random() * others.length);
     const newHolder = others[idx].id;
@@ -164,17 +198,24 @@ io.on("connection", socket => {
 
     io.to(currentLobby.id).emit("potatoThrown", {
       from: fromHolder,
-      to: newHolder,
+      to: newHolder
     });
 
-    startHoldTimer(currentLobby); // reset timer for new holder
+    startHoldTimer(currentLobby);
   });
 
   socket.on("disconnect", () => {
     if (!currentLobby) return;
-    currentLobby.players = currentLobby.players.filter(p => p.id !== socket.id);
+
+    currentLobby.players = currentLobby.players.filter(
+      p => p.id !== socket.id
+    );
+
     broadcastLobby(currentLobby);
   });
 });
 
-server.listen(3000, () => console.log("Server running on http://localhost:3000"));
+/* ================= START SERVER ================= */
+server.listen(3000, () =>
+  console.log("🥔 Throw The Potato running on http://localhost:3000")
+);
