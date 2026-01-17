@@ -12,6 +12,16 @@ app.use(express.static("public"));
 let lobbies = {}; 
 const INITIAL_HOLD_TIME = 60;
 
+const fs = require("fs");
+
+const forfeits = JSON.parse(
+  fs.readFileSync("./forfeits.json", "utf8")
+);
+
+function getRandomForfeit() {
+  return forfeits[Math.floor(Math.random() * forfeits.length)];
+}
+
 function createLobby() {
   const id = Math.random().toString(36).substring(2, 8);
   lobbies[id] = {
