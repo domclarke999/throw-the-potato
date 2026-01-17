@@ -1,5 +1,36 @@
 const socket = io();
 
+// ================= AUDIO (iOS SAFE) =================
+let audioCtx = null;
+let incomingBuffer = null;
+let audioUnlocked = false;
+
+async function initAudio() {
+  if (audioUnlocked) return;
+
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+  // REQUIRED for iOS
+  await audioCtx.resume();
+
+  const response = await fetch("incoming.wav");
+  const arrayBuffer = await response.arrayBuffer();
+  incomingBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+
+  audioUnlocked = true;
+  console.log("🔊 Audio unlocked (iOS safe)");
+}
+
+function playIncomingSound() {
+  if (!audioUnlocked || !incomingBuffer) return;
+
+  const source = audioCtx.createBufferSource();
+  source.buffer = incomingBuffer;
+  source.connect(audioCtx.destination);
+  source.start(0);
+}
+
+
 /* DOM */
 const nameScreen = document.getElementById("nameScreen");
 const lobbyScreen = document.getElementById("lobbyScreen");
@@ -221,5 +252,6 @@ function updateScoreboard(scores){
     scoreboardEl.appendChild(li);
   });
 }
+
 
 
