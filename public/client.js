@@ -138,13 +138,15 @@ socket.on("eliminated", data => {
   stopCountdown();
 
   if (data.player === myId) {
-    messageEl.textContent =
-      "😵 You made a right mash of things, here is your forfeit!";
+    messageEl.innerHTML = `
+      <strong>${data.message}</strong><br><br>
+      📝 <em>${data.forfeit}</em>
+    `;
   } else {
-    messageEl.textContent =
-      "😏 You got lucky this time, Potato Head";
+    messageEl.textContent = "😏 You got lucky this time, Potato Head!";
   }
 });
+
 
 socket.on("gameEnd", data => {
   stopCountdown();
@@ -248,3 +250,4 @@ function updateScoreboard(scores) {
     scoreboardEl.appendChild(li);
   });
 }
+
