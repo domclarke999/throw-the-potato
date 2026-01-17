@@ -175,8 +175,8 @@ saveNameBtn.onclick=()=>{
   show(lobbyScreen);
 };
 
-joinLobbyBtn.onclick = () => {
-  unlockAudio(); // 👈 THIS IS THE KEY LINE
+joinLobbyBtn.onclick = async () => {
+  await initAudio(); // 🔥 THIS unlocks audio on iOS
 
   if (isHost) {
     const count = Number(playerCountSelect.value);
@@ -186,6 +186,7 @@ joinLobbyBtn.onclick = () => {
 
   socket.emit("joinLobby");
 };
+
 
 
 throwBtn.onclick=()=>{
@@ -252,6 +253,7 @@ function updateScoreboard(scores){
     scoreboardEl.appendChild(li);
   });
 }
+
 
 
 
