@@ -24,6 +24,21 @@ const potato = document.getElementById("potato");
 const scoreboardEl = document.getElementById("scoreboard");
 const incomingSound = document.getElementById("incomingSound");
 
+let audioUnlocked = false;
+
+function unlockAudio() {
+  if (audioUnlocked) return;
+
+  incomingSound.play().then(() => {
+    incomingSound.pause();
+    incomingSound.currentTime = 0;
+    audioUnlocked = true;
+    console.log("🔊 Audio unlocked");
+  }).catch(() => {
+    // Safari sometimes needs a second tap
+  });
+}
+
 /* STATE */
 let myId = null;
 let isHost = false;
@@ -202,3 +217,4 @@ function updateScoreboard(scores){
     scoreboardEl.appendChild(li);
   });
 }
+
