@@ -144,14 +144,18 @@ saveNameBtn.onclick=()=>{
   show(lobbyScreen);
 };
 
-joinLobbyBtn.onclick=()=>{
-  if(isHost){
-    const count=Number(playerCountSelect.value);
-    socket.emit("setPlayerCount",count);
-    playerCountSelect.disabled=true;
+joinLobbyBtn.onclick = () => {
+  unlockAudio(); // 👈 THIS IS THE KEY LINE
+
+  if (isHost) {
+    const count = Number(playerCountSelect.value);
+    socket.emit("setPlayerCount", count);
+    playerCountSelect.disabled = true;
   }
+
   socket.emit("joinLobby");
 };
+
 
 throwBtn.onclick=()=>{
   socket.emit("throwPotato");
@@ -217,4 +221,5 @@ function updateScoreboard(scores){
     scoreboardEl.appendChild(li);
   });
 }
+
 
