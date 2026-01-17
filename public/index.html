@@ -6,6 +6,7 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+
   <!-- Name entry -->
   <div id="nameScreen">
     <h1>Throw the Potato</h1>
@@ -16,13 +17,33 @@
   <!-- Lobby -->
   <div id="lobbyScreen" style="display:none">
     <h2>Lobby</h2>
+
+    <!-- HOST ONLY -->
     <div id="hostControls" style="display:none">
-      <label for="playerCount">Players:</label>
+      <label for="playerCount">Number of players:</label>
       <select id="playerCount">
-        <!-- 2-20 players -->
-        ${[...Array(19)].map((_,i)=>`<option value="${i+2}">${i+2}</option>`).join('')}
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+        <option value="5">5</option>
+        <option value="6">6</option>
+        <option value="7">7</option>
+        <option value="8">8</option>
+        <option value="9">9</option>
+        <option value="10">10</option>
+        <option value="11">11</option>
+        <option value="12">12</option>
+        <option value="13">13</option>
+        <option value="14">14</option>
+        <option value="15">15</option>
+        <option value="16">16</option>
+        <option value="17">17</option>
+        <option value="18">18</option>
+        <option value="19">19</option>
+        <option value="20">20</option>
       </select>
     </div>
+
     <button id="joinLobby">Enter Salad Drawer</button>
     <p id="lobbyText">Waiting…</p>
   </div>
@@ -30,15 +51,20 @@
   <!-- Game Screen -->
   <div id="gameScreen" style="display:none">
     <h2 id="status">Waiting…</h2>
+
     <div id="playersWrapper">
       <div id="players"></div>
       <div id="potato">🥔</div>
     </div>
+
     <button id="throwBtn" disabled>Throw Potato</button>
     <div id="timer"></div>
     <div id="message"></div>
+
+    <h3>Scoreboard</h3>
     <ol id="scoreboard"></ol>
-    <audio id="incomingSound" src="incoming.wav"></audio>
+
+    <audio id="incomingSound" src="incoming.wav" preload="auto"></audio>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
