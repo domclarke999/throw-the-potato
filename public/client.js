@@ -172,7 +172,6 @@ joinLobbyBtn.onclick = async () => {
     playerCountSelect.disabled = true;
   }
 
-  socket.emit("joinLobby");
 };
 
 throwBtn.onclick = () => {
@@ -250,4 +249,5 @@ function updateScoreboard(scores) {
     scoreboardEl.appendChild(li);
   });
 }
+
 
