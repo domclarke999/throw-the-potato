@@ -159,9 +159,15 @@ socket.on("gameEnd", data => {
 saveNameBtn.onclick = () => {
   const name = nameInput.value.trim();
   if (!name) return;
+
   socket.emit("setName", name);
+
+  // 🔥 AUTO join lobby immediately
+  socket.emit("joinLobby");
+
   show(lobbyScreen);
 };
+
 
 joinLobbyBtn.onclick = async () => {
   await initAudio();
@@ -249,5 +255,6 @@ function updateScoreboard(scores) {
     scoreboardEl.appendChild(li);
   });
 }
+
 
 
