@@ -117,21 +117,16 @@ socket.on("lobbyUpdate", data => {
 });
 
 socket.on("gameStart", data => {
-  show(gameScreen);
   players = data.players;
   potatoHolder = data.potatoHolder;
-  maxHoldTime = data.maxHoldTime || 60;
-
-  renderPlayers();
-  updatePotatoState(true);
-  updateScoreboard(data.scores || {});
-  messageEl.textContent = "";
+  updatePotatoState();
 });
+
 
 socket.on("potatoThrown", data => {
   potatoHolder = data.to;
   animatePotato(data.from, data.to);
-  updatePotatoState(true);
+  updatePotatoState();
 });
 
 socket.on("eliminated", data => {
@@ -258,6 +253,7 @@ function updateScoreboard(scores) {
     scoreboardEl.appendChild(li);
   });
 }
+
 
 
 
