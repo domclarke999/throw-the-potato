@@ -203,7 +203,7 @@ function renderPlayers() {
 }
 
 /* ================= POTATO STATE ================= */
-function updatePotatoState(playSound = false) {
+function updatePotatoState() {
   const holder = players.find(p => p.id === potatoHolder);
   if (!holder) return;
 
@@ -212,14 +212,15 @@ function updatePotatoState(playSound = false) {
       ? "🥔 You have the potato!"
       : `🥔 ${holder.name} has the potato`;
 
+  // 🔊 SOUND + 📳 VIBRATION ONLY WHEN HOLDER CHANGES TO ME
+  if (potatoHolder === myId && lastHolder !== myId) {
+    playIncomingSound();
+    navigator.vibrate?.(500);
+  }
+
   if (potatoHolder === myId) {
     throwBtn.disabled = false;
     startCountdown();
-
-    if (lastHolder !== myId && playSound) {
-      playIncomingSound();
-      navigator.vibrate?.(500);
-    }
   } else {
     throwBtn.disabled = true;
     stopCountdown();
@@ -257,6 +258,7 @@ function updateScoreboard(scores) {
     scoreboardEl.appendChild(li);
   });
 }
+
 
 
 
