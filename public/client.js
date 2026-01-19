@@ -170,7 +170,7 @@ saveNameBtn.onclick = () => {
 
 
 joinLobbyBtn.onclick = async () => {
-  await initAudio();
+  await initAudio(); // iOS unlock
 
   if (isHost) {
     const count = Number(playerCountSelect.value);
@@ -178,7 +178,9 @@ joinLobbyBtn.onclick = async () => {
     playerCountSelect.disabled = true;
   }
 
+  // ❌ DO NOT emit joinLobby here anymore
 };
+
 
 throwBtn.onclick = () => {
   socket.emit("throwPotato");
@@ -255,6 +257,7 @@ function updateScoreboard(scores) {
     scoreboardEl.appendChild(li);
   });
 }
+
 
 
 
